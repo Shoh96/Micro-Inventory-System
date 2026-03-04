@@ -1,0 +1,33 @@
+{
+  "name": "micro-inventory-server",
+  "version": "1.0.0",
+  "description": "Backend API for the Community Micro-Inventory System",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "dev": "nodemon app.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^11.10.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.18.3",
+    "jsonwebtoken": "^9.0.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "inventory",
+    "express",
+    "sqlite",
+    "jwt",
+    "micro-business"
+  ],
+  "author": "Community Micro-Inventory System",
+  "license": "MIT"
+}

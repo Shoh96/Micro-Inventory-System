@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description"
+        content="Community Micro-Inventory System – Dashboard for inventory and sales management." />
+    <title>MicroStock | Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="css/style.css" />
+</head>
+
+<body class="dashboard-page">
+
+    <!-- ── Top Navigation ─────────────────────────────────────────────── -->
+    <nav class="navbar">
+        <div class="navbar-brand">
+            <span class="brand-icon">📦</span>
+            <span class="brand-name">MicroStock</span>
+        </div>
+        <div class="navbar-right">
+            <span class="navbar-user" id="navbar-username">Loading…</span>
+            <button class="btn btn-ghost btn-sm" id="logout-btn">Logout</button>
+        </div>
+    </nav>
+
+    <!-- ── Main Layout ─────────────────────────────────────────────────── -->
+    <main class="dashboard-main">
+
+        <!-- ── KPI Cards ───────────────────────────────────────────────── -->
+        <section class="kpi-grid" aria-label="Business metrics">
+            <div class="kpi-card">
+                <p class="kpi-label">Stock Value</p>
+                <p class="kpi-value" id="kpi-stock-value">—</p>
+                <p class="kpi-sub">at cost price</p>
+            </div>
+            <div class="kpi-card">
+                <p class="kpi-label">Total Profit</p>
+                <p class="kpi-value kpi-profit" id="kpi-profit">—</p>
+                <p class="kpi-sub">realised from sales</p>
+            </div>
+            <div class="kpi-card">
+                <p class="kpi-label">Total Revenue</p>
+                <p class="kpi-value" id="kpi-revenue">—</p>
+                <p class="kpi-sub">from recorded sales</p>
+            </div>
+            <div class="kpi-card kpi-alert-card" id="kpi-low-stock-card">
+                <p class="kpi-label">Low Stock</p>
+                <p class="kpi-value kpi-danger" id="kpi-low-stock">—</p>
+                <p class="kpi-sub">items need restocking</p>
+            </div>
+        </section>
+
+        <!-- ── Low Stock Alert Banner ──────────────────────────────────── -->
+        <div class="alert-banner hidden" id="low-stock-banner" role="alert">
+            <strong>⚠ Low Stock Alert:</strong>
+            <span id="low-stock-names"></span>
+        </div>
+
+        <!-- ── Section Tabs ────────────────────────────────────────────── -->
+        <div class="section-tabs" role="tablist">
+            <button class="section-tab active" id="tab-inventory" role="tab" aria-selected="true"
+                aria-controls="section-inventory">
+                Inventory
+            </button>
+            <button class="section-tab" id="tab-sales" role="tab" aria-selected="false" aria-controls="section-sales">
+                Sales History
+            </button>
+        </div>
+
+        <!-- ── Inventory Section ───────────────────────────────────────── -->
+        <section class="dashboard-section active" id="section-inventory" role="tabpanel">
+
+            <!-- Toolbar -->
+            <div class="section-toolbar">
+                <input class="search-input" type="search" id="product-search" placeholder="Search products…"
+                    aria-label="Search products" />
+                <button class="btn btn-primary" id="open-add-product-btn">+ Add Product</button>
+            </div>
+
+            <!-- Products table -->
+            <div class="table-wrapper">
+                <table class="data-table" id="products-table" aria-label="Products">
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>Description</th>
+                            <th class="text-right">Qty</th>
+                            <th class="text-right">Cost Price</th>
+                            <th class="text-right">Sell Price</th>
+                            <th class="text-right">Unit Profit</th>
+                            <th class="text-center">Status</th>
+                            <th class="text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="products-tbody">
+                        <tr class="empty-row">
+                            <td colspan="8">Loading products…</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Record sale shortcut -->
+            <div class="quick-sale-bar">
+                <h3>Record a Sale</h3>
+                <div class="quick-sale-fields">
+                    <select id="sale-product-select" aria-label="Select product">
+                        <option value="">— Choose product —</option>
+                    </select>
+                    <input type="number" id="sale-qty-input" placeholder="Quantity" min="1"
+                        aria-label="Quantity to sell" />
+                    <button class="btn btn-success" id="record-sale-btn">Record Sale</button>
+                </div>
+                <p class="form-msg" id="sale-msg" role="alert"></p>
+            </div>
+
+        </section>
+
+        <!-- ── Sales History Section ───────────────────────────────────── -->
+        <section class="dashboard-section" id="section-sales" role="tabpanel" aria-labelledby="tab-sales">
+            <div class="table-wrapper">
+                <table class="data-table" id="sales-table" aria-label="Sales history">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Product</th>
+                            <th class="text-right">Qty Sold</th>
+                            <th class="text-right">Unit Price</th>
+                            <th class="text-right">Total Profit</th>
+                        </tr>
+                    </thead>
+                    <tbody id="sales-tbody">
+                        <tr class="empty-row">
+                            <td colspan="5">Loading sales…</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ── Add / Edit Product Modal ───────────────────────────────────── -->
+    <div class="modal-overlay hidden" id="product-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 class="modal-title" id="modal-title">Add Product</h2>
+                <button class="modal-close" id="modal-close-btn" aria-label="Close modal">&times;</button>
+            </div>
+            <form id="product-form" novalidate>
+                <!-- Hidden field for edit mode -->
+                <input type="hidden" id="product-id-field" />
+                <div class="modal-body">
+                    <div class="form-grid">
+                        <div class="field">
+                            <label for="field-name">Product Name *</label>
+                            <input type="text" id="field-name" placeholder="e.g. Maggi Cubes" required />
+                        </div>
+                        <div class="field field-full">
+                            <label for="field-description">Description</label>
+                            <input type="text" id="field-description" placeholder="Optional short description" />
+                        </div>
+                        <div class="field">
+                            <label for="field-quantity">Initial Quantity *</label>
+                            <input type="number" id="field-quantity" placeholder="0" min="0" required />
+                        </div>
+                        <div class="field">
+                            <label for="field-cost">Cost Price (XAF) *</label>
+                            <input type="number" id="field-cost" placeholder="0.00" min="0" step="0.01" required />
+                        </div>
+                        <div class="field">
+                            <label for="field-sell">Selling Price (XAF) *</label>
+                            <input type="number" id="field-sell" placeholder="0.00" min="0" step="0.01" required />
+                        </div>
+                        <div class="field field-derived">
+                            <label>Unit Profit</label>
+                            <p class="derived-value" id="derived-profit">—</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <p class="form-msg" id="product-form-msg" role="alert"></p>
+                    <button type="button" class="btn btn-ghost" id="modal-cancel-btn">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="product-save-btn">Save Product</button>
+                </div>
+            </form>
+        </div>
+    </div><!-- /.modal-overlay -->
+
+    <script src="js/dashboard.js"></script>
+</body>
+
+</html>
