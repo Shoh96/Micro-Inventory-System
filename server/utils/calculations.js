@@ -1,72 +1,57 @@
 /**
- * FILE: server/utils/calculations.js
+ * FILE: server/utils/calculations.js (V2)
  *
  * PURPOSE:
- *   Pure utility functions for financial calculations used throughout
- *   the system (profit per unit, inventory value, etc.).
- *   Keeping these in one place makes them easy to test and reason about.
+ *   Pure financial calculation utilities used by controllers.
+ *   V2 adds discount and tax handling to the profit formula.
+ *
+ * PROFIT FORMULA (per sale):
+ *   grossRevenue  = sellingPrice × qty
+ *   taxAmount     = grossRevenue × taxRate
+ *   netRevenue    = grossRevenue + taxAmount - discount
+ *   grossCost     = costPrice × qty
+ *   profit        = netRevenue - grossCost
  *
  * EXPORTS:
- *   calculateUnitProfit   — profit on a single unit
- *   calculateSaleProfit   — profit on a batch sale
- *   calculateStockValue   — total stock value of a product
- *   roundCurrency         — rounds to 2 decimal places
- *
- * HOW IT FITS:
- *   Imported by saleController.js and dashboardController.js.
- *   No database access — pure functions only.
+ *   calculateSaleFinancials, calculateUnitProfit,
+ *   calculateStockValue, roundCurrency
  */
 
 'use strict';
 
-/**
- * roundCurrency
- * Rounds a floating-point number to two decimal places to avoid
- * floating-point representation issues in financial totals.
- *
- * @param {number} value - The raw numeric value to round.
- * @returns {number}       Value rounded to 2 d.p.
- */
-const roundCurrency = (value) => Math.round(value * 100) / 100;
+const roundCurrency = (v) => Math.round(v * 100) / 100;
 
 /**
- * calculateUnitProfit
- * Computes the profit margin on a single unit of a product.
+ * calculateSaleFinancials
+ * Returns all monetary values needed to persist a sale record.
  *
- * @param {number} sellingPrice - The price at which one unit is sold.
- * @param {number} costPrice    - The price at which one unit was purchased.
- * @returns {number}              Profit per unit (can be negative if sold at loss).
+ * @param {number} sellingPrice  — unit price at time of sale
+ * @param {number} costPrice     — unit cost at time of sale
+ * @param {number} qty           — units sold
+ * @param {number} discount      — total discount amount (not per-unit), default 0
+ * @param {number} taxRate       — fractional rate (0.1925 = 19.25%), default 0
+ *
+ * @returns {{ totalRevenue, totalProfit }}
+ */
+const calculateSaleFinancials = (sellingPrice, costPrice, qty, discount = 0, taxRate = 0) => {
+    const grossRevenue = sellingPrice * qty;
+    const taxAmount = roundCurrency(grossRevenue * taxRate);
+    const totalRevenue = roundCurrency(grossRevenue + taxAmount - discount);
+    const totalCost = roundCurrency(costPrice * qty);
+    const totalProfit = roundCurrency(totalRevenue - totalCost);
+    return { totalRevenue, totalProfit };
+};
+
+/**
+ * calculateUnitProfit — simple margin on one unit (no discount/tax).
  */
 const calculateUnitProfit = (sellingPrice, costPrice) =>
     roundCurrency(sellingPrice - costPrice);
 
 /**
- * calculateSaleProfit
- * Computes the total profit for a batch sale transaction.
- *
- * @param {number} sellingPrice - The price per unit at the time of the sale.
- * @param {number} costPrice    - The cost price per unit at the time of the sale.
- * @param {number} quantitySold - Number of units sold.
- * @returns {number}              Total profit for the entire sale.
- */
-const calculateSaleProfit = (sellingPrice, costPrice, quantitySold) =>
-    roundCurrency((sellingPrice - costPrice) * quantitySold);
-
-/**
- * calculateStockValue
- * Computes the current monetary value of remaining stock for a product.
- * Uses cost price because that reflects the owner's actual investment.
- *
- * @param {number} costPrice - Cost price per unit.
- * @param {number} quantity  - Current quantity in stock.
- * @returns {number}           Total stock value at cost.
+ * calculateStockValue — total cost-value of remaining inventory for a product.
  */
 const calculateStockValue = (costPrice, quantity) =>
     roundCurrency(costPrice * quantity);
 
-module.exports = {
-    roundCurrency,
-    calculateUnitProfit,
-    calculateSaleProfit,
-    calculateStockValue,
-};
+module.exports = { roundCurrency, calculateSaleFinancials, calculateUnitProfit, calculateStockValue };

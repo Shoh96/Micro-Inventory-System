@@ -4,193 +4,518 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description"
-        content="Community Micro-Inventory System – Dashboard for inventory and sales management." />
-    <title>MicroStock | Dashboard</title>
+    <title>Micro-Inventory — Dashboard</title>
+    <meta name="description" content="Manage products, record sales, and view analytics for your shop." />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="css/style.css" />
+    <link rel="stylesheet" href="/css/styles.css" />
+    <!-- Chart.js — loaded from CDN, used by analytics.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
 </head>
 
-<body class="dashboard-page">
+<body class="app-body">
 
-    <!-- ── Top Navigation ─────────────────────────────────────────────── -->
-    <nav class="navbar">
-        <div class="navbar-brand">
-            <span class="brand-icon">📦</span>
-            <span class="brand-name">MicroStock</span>
+    <!-- ── Sidebar ──────────────────────────────────────────────────────────── -->
+    <nav class="sidebar" aria-label="Main navigation">
+        <div class="sidebar-header">
+            <span class="logo-icon">📦</span>
+            <span class="sidebar-title">Micro-Inventory</span>
         </div>
-        <div class="navbar-right">
-            <span class="navbar-user" id="navbar-username">Loading…</span>
-            <button class="btn btn-ghost btn-sm" id="logout-btn">Logout</button>
+        <ul class="nav-list" role="list">
+            <li><button class="nav-btn active" data-section="dashboard" aria-current="page">
+                    <span class="nav-icon">🎯</span> Dashboard
+                </button></li>
+            <li><button class="nav-btn" data-section="products">
+                    <span class="nav-icon">📋</span> Inventory
+                </button></li>
+            <li><button class="nav-btn" data-section="sales">
+                    <span class="nav-icon">💰</span> Sales
+                </button></li>
+            <li><button class="nav-btn" data-section="analytics">
+                    <span class="nav-icon">📊</span> Analytics
+                </button></li>
+            <li class="nav-admin-only"><button class="nav-btn" data-section="users">
+                    <span class="nav-icon">👥</span> Users
+                </button></li>
+        </ul>
+        <div class="sidebar-footer">
+            <p class="user-display" id="user-display"></p>
+            <button id="btn-logout" class="btn btn-sm btn-ghost">Sign Out</button>
         </div>
     </nav>
 
-    <!-- ── Main Layout ─────────────────────────────────────────────────── -->
-    <main class="dashboard-main">
+    <!-- ── Main content ──────────────────────────────────────────────────────── -->
+    <main class="main-content" id="main-content">
 
-        <!-- ── KPI Cards ───────────────────────────────────────────────── -->
-        <section class="kpi-grid" aria-label="Business metrics">
-            <div class="kpi-card">
-                <p class="kpi-label">Stock Value</p>
-                <p class="kpi-value" id="kpi-stock-value">—</p>
-                <p class="kpi-sub">at cost price</p>
+        <!-- ── Dashboard section ──────────────────────────────────────────────── -->
+        <section id="section-dashboard" class="content-section active" aria-label="Dashboard">
+            <header class="section-header">
+                <h2>Dashboard</h2>
+                <span class="section-subtitle">Your shop at a glance</span>
+            </header>
+
+            <!-- KPI cards -->
+            <div class="kpi-grid" id="kpi-grid">
+                <div class="kpi-card" id="kpi-stock-value">
+                    <span class="kpi-label">Stock Value</span>
+                    <span class="kpi-value">—</span>
+                    <span class="kpi-hint">at cost price</span>
+                </div>
+                <div class="kpi-card" id="kpi-revenue">
+                    <span class="kpi-label">Total Revenue</span>
+                    <span class="kpi-value">—</span>
+                    <span class="kpi-hint">all time</span>
+                </div>
+                <div class="kpi-card" id="kpi-profit">
+                    <span class="kpi-label">Total Profit</span>
+                    <span class="kpi-value">—</span>
+                    <span class="kpi-hint">all time</span>
+                </div>
+                <div class="kpi-card" id="kpi-products">
+                    <span class="kpi-label">Products</span>
+                    <span class="kpi-value">—</span>
+                    <span class="kpi-hint">in catalogue</span>
+                </div>
+                <div class="kpi-card kpi-alert" id="kpi-lowstock">
+                    <span class="kpi-label">Low Stock Items</span>
+                    <span class="kpi-value">—</span>
+                    <span class="kpi-hint">need restocking</span>
+                </div>
+                <div class="kpi-card" id="kpi-sales">
+                    <span class="kpi-label">Total Sales</span>
+                    <span class="kpi-value">—</span>
+                    <span class="kpi-hint">transactions</span>
+                </div>
             </div>
-            <div class="kpi-card">
-                <p class="kpi-label">Total Profit</p>
-                <p class="kpi-value kpi-profit" id="kpi-profit">—</p>
-                <p class="kpi-sub">realised from sales</p>
-            </div>
-            <div class="kpi-card">
-                <p class="kpi-label">Total Revenue</p>
-                <p class="kpi-value" id="kpi-revenue">—</p>
-                <p class="kpi-sub">from recorded sales</p>
-            </div>
-            <div class="kpi-card kpi-alert-card" id="kpi-low-stock-card">
-                <p class="kpi-label">Low Stock</p>
-                <p class="kpi-value kpi-danger" id="kpi-low-stock">—</p>
-                <p class="kpi-sub">items need restocking</p>
+
+            <!-- Low-stock alert list -->
+            <div class="card mt-lg">
+                <h3 class="card-title">⚠️ Low Stock Alerts</h3>
+                <ul id="low-stock-list" class="low-stock-list">
+                    <li class="empty-state">Loading…</li>
+                </ul>
             </div>
         </section>
 
-        <!-- ── Low Stock Alert Banner ──────────────────────────────────── -->
-        <div class="alert-banner hidden" id="low-stock-banner" role="alert">
-            <strong>⚠ Low Stock Alert:</strong>
-            <span id="low-stock-names"></span>
-        </div>
+        <!-- ── Inventory section ───────────────────────────────────────────────── -->
+        <section id="section-products" class="content-section" aria-label="Inventory" hidden>
+            <header class="section-header">
+                <h2>Inventory</h2>
+                <div class="header-actions">
+                    <button id="btn-add-category" class="btn btn-sm btn-secondary">+ Category</button>
+                    <button id="btn-add-supplier" class="btn btn-sm btn-secondary">+ Supplier</button>
+                    <button id="btn-add-product" class="btn btn-primary">+ Add Product</button>
+                </div>
+            </header>
 
-        <!-- ── Section Tabs ────────────────────────────────────────────── -->
-        <div class="section-tabs" role="tablist">
-            <button class="section-tab active" id="tab-inventory" role="tab" aria-selected="true"
-                aria-controls="section-inventory">
-                Inventory
-            </button>
-            <button class="section-tab" id="tab-sales" role="tab" aria-selected="false" aria-controls="section-sales">
-                Sales History
-            </button>
-        </div>
-
-        <!-- ── Inventory Section ───────────────────────────────────────── -->
-        <section class="dashboard-section active" id="section-inventory" role="tabpanel">
-
-            <!-- Toolbar -->
-            <div class="section-toolbar">
-                <input class="search-input" type="search" id="product-search" placeholder="Search products…"
+            <!-- Filter bar -->
+            <div class="filter-bar">
+                <input id="product-search" type="search" placeholder="Search products…" class="filter-input"
                     aria-label="Search products" />
-                <button class="btn btn-primary" id="open-add-product-btn">+ Add Product</button>
+                <select id="filter-category" class="filter-select" aria-label="Filter by category">
+                    <option value="">All categories</option>
+                </select>
+                <label class="filter-check">
+                    <input id="filter-low-stock" type="checkbox" />
+                    Low stock only
+                </label>
             </div>
 
-            <!-- Products table -->
-            <div class="table-wrapper">
-                <table class="data-table" id="products-table" aria-label="Products">
-                    <thead>
-                        <tr>
-                            <th>Product</th>
-                            <th>Description</th>
-                            <th class="text-right">Qty</th>
-                            <th class="text-right">Cost Price</th>
-                            <th class="text-right">Sell Price</th>
-                            <th class="text-right">Unit Profit</th>
-                            <th class="text-center">Status</th>
-                            <th class="text-center">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="products-tbody">
-                        <tr class="empty-row">
-                            <td colspan="8">Loading products…</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- Record sale shortcut -->
-            <div class="quick-sale-bar">
-                <h3>Record a Sale</h3>
-                <div class="quick-sale-fields">
-                    <select id="sale-product-select" aria-label="Select product">
-                        <option value="">— Choose product —</option>
-                    </select>
-                    <input type="number" id="sale-qty-input" placeholder="Quantity" min="1"
-                        aria-label="Quantity to sell" />
-                    <button class="btn btn-success" id="record-sale-btn">Record Sale</button>
+            <div class="card">
+                <div class="table-wrapper">
+                    <table class="data-table" aria-label="Products table">
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th>Category</th>
+                                <th>Supplier</th>
+                                <th>Qty</th>
+                                <th>Cost</th>
+                                <th>Price</th>
+                                <th>Expires</th>
+                                <th>Batch</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="products-tbody">
+                            <tr>
+                                <td colspan="9" class="empty-state">Loading…</td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
-                <p class="form-msg" id="sale-msg" role="alert"></p>
             </div>
 
-        </section>
+            <!-- Add/Edit Product Modal -->
+            <div id="product-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-hidden="true"
+                aria-labelledby="modal-title">
+                <div class="modal-box">
+                    <header class="modal-header">
+                        <h3 id="modal-title">Add Product</h3>
+                        <button id="btn-close-modal" class="btn-icon" aria-label="Close">&times;</button>
+                    </header>
 
-        <!-- ── Sales History Section ───────────────────────────────────── -->
-        <section class="dashboard-section" id="section-sales" role="tabpanel" aria-labelledby="tab-sales">
-            <div class="table-wrapper">
-                <table class="data-table" id="sales-table" aria-label="Sales history">
-                    <thead>
-                        <tr>
-                            <th>Date</th>
-                            <th>Product</th>
-                            <th class="text-right">Qty Sold</th>
-                            <th class="text-right">Unit Price</th>
-                            <th class="text-right">Total Profit</th>
-                        </tr>
-                    </thead>
-                    <tbody id="sales-tbody">
-                        <tr class="empty-row">
-                            <td colspan="5">Loading sales…</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </section>
-
-    </main>
-
-    <!-- ── Add / Edit Product Modal ───────────────────────────────────── -->
-    <div class="modal-overlay hidden" id="product-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-        <div class="modal">
-            <div class="modal-header">
-                <h2 class="modal-title" id="modal-title">Add Product</h2>
-                <button class="modal-close" id="modal-close-btn" aria-label="Close modal">&times;</button>
-            </div>
-            <form id="product-form" novalidate>
-                <!-- Hidden field for edit mode -->
-                <input type="hidden" id="product-id-field" />
-                <div class="modal-body">
-                    <div class="form-grid">
-                        <div class="field">
-                            <label for="field-name">Product Name *</label>
-                            <input type="text" id="field-name" placeholder="e.g. Maggi Cubes" required />
-                        </div>
-                        <div class="field field-full">
-                            <label for="field-description">Description</label>
-                            <input type="text" id="field-description" placeholder="Optional short description" />
-                        </div>
-                        <div class="field">
-                            <label for="field-quantity">Initial Quantity *</label>
-                            <input type="number" id="field-quantity" placeholder="0" min="0" required />
-                        </div>
-                        <div class="field">
-                            <label for="field-cost">Cost Price (XAF) *</label>
-                            <input type="number" id="field-cost" placeholder="0.00" min="0" step="0.01" required />
-                        </div>
-                        <div class="field">
-                            <label for="field-sell">Selling Price (XAF) *</label>
-                            <input type="number" id="field-sell" placeholder="0.00" min="0" step="0.01" required />
-                        </div>
-                        <div class="field field-derived">
-                            <label>Unit Profit</label>
-                            <p class="derived-value" id="derived-profit">—</p>
-                        </div>
+                    <!-- Duplicate detection warning -->
+                    <div id="dup-warning" class="alert alert-warning hidden">
+                        <strong>⚠️ Possible duplicate detected:</strong>
+                        <ul id="dup-list"></ul>
+                        <button id="btn-force-add" class="btn btn-sm btn-secondary">Add Anyway</button>
                     </div>
-                </div>
-                <div class="modal-footer">
-                    <p class="form-msg" id="product-form-msg" role="alert"></p>
-                    <button type="button" class="btn btn-ghost" id="modal-cancel-btn">Cancel</button>
-                    <button type="submit" class="btn btn-primary" id="product-save-btn">Save Product</button>
-                </div>
-            </form>
-        </div>
-    </div><!-- /.modal-overlay -->
 
-    <script src="js/dashboard.js"></script>
+                    <form id="product-form" novalidate>
+                        <div class="form-grid-2">
+                            <div class="form-group">
+                                <label for="product-name">Name <span class="required">*</span></label>
+                                <input id="product-name" name="name" type="text" required
+                                    placeholder="e.g. Maggi Cubes" />
+                            </div>
+                            <div class="form-group">
+                                <label for="product-category">Category</label>
+                                <select id="product-category" name="category_id">
+                                    <option value="">— None —</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="product-supplier">Supplier</label>
+                                <select id="product-supplier" name="supplier_id">
+                                    <option value="">— None —</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="product-qty">Quantity</label>
+                                <input id="product-qty" name="quantity" type="number" min="0" value="0" />
+                            </div>
+                            <div class="form-group">
+                                <label for="product-cost">Cost Price <span class="required">*</span></label>
+                                <input id="product-cost" name="cost_price" type="number" step="0.01" min="0" required />
+                            </div>
+                            <div class="form-group">
+                                <label for="product-sell">Selling Price <span class="required">*</span></label>
+                                <input id="product-sell" name="selling_price" type="number" step="0.01" min="0"
+                                    required />
+                            </div>
+                            <div class="form-group">
+                                <label for="product-expiry">Expiry Date</label>
+                                <input id="product-expiry" name="expiry_date" type="date" />
+                            </div>
+                            <div class="form-group">
+                                <label for="product-batch">Batch Number</label>
+                                <input id="product-batch" name="batch_number" type="text" placeholder="optional" />
+                            </div>
+                            <div class="form-group">
+                                <label for="product-serial">Serial Number</label>
+                                <input id="product-serial" name="serial_number" type="text" placeholder="optional" />
+                            </div>
+                            <div class="form-group form-group--full">
+                                <label for="product-desc">Description</label>
+                                <textarea id="product-desc" name="description" rows="2"
+                                    placeholder="optional notes"></textarea>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" id="btn-cancel-product" class="btn btn-secondary"
+                                onclick="document.getElementById('product-modal').classList.add('hidden')">Cancel</button>
+                            <button type="submit" id="btn-submit-product" class="btn btn-primary">Save Product</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </section>
+
+        <!-- ── Sales section ──────────────────────────────────────────────────── -->
+        <section id="section-sales" class="content-section" aria-label="Sales" hidden>
+            <header class="section-header">
+                <h2>Sales</h2>
+                <button id="btn-record-sale" class="btn btn-primary">+ Record Sale</button>
+            </header>
+
+            <div class="card">
+                <div class="table-wrapper">
+                    <table class="data-table" aria-label="Sales history">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Product</th>
+                                <th>Qty</th>
+                                <th>Unit Price</th>
+                                <th>Discount</th>
+                                <th>Tax</th>
+                                <th>Revenue</th>
+                                <th>Profit</th>
+                            </tr>
+                        </thead>
+                        <tbody id="sales-tbody">
+                            <tr>
+                                <td colspan="8" class="empty-state">Loading…</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Sale Modal -->
+            <div id="sale-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-hidden="true">
+                <div class="modal-box modal-box--sm">
+                    <header class="modal-header">
+                        <h3>Record Sale</h3>
+                        <button id="btn-close-sale-modal" class="btn-icon" aria-label="Close">&times;</button>
+                    </header>
+                    <form id="sale-form" novalidate>
+                        <div class="form-group">
+                            <label>Product</label>
+                            <select name="product_id" id="sale-product-select" required>
+                                <option value="">Select product…</option>
+                            </select>
+                            <p id="sale-product-name" class="hint"></p>
+                            <p id="sale-max-qty" class="hint text-warning"></p>
+                        </div>
+                        <!-- Hidden product_id used when opened from quick-sell button -->
+                        <input type="hidden" name="product_id" id="sale-product-id" />
+                        <div class="form-grid-2">
+                            <div class="form-group">
+                                <label for="sale-qty">Quantity Sold <span class="required">*</span></label>
+                                <input id="sale-qty" name="quantity_sold" type="number" min="1" value="1" required />
+                            </div>
+                            <div class="form-group">
+                                <label for="sale-price">Selling Price</label>
+                                <input id="sale-price" name="selling_price" type="number" step="0.01" min="0" />
+                            </div>
+                            <div class="form-group">
+                                <label for="sale-discount">Discount (total)</label>
+                                <input id="sale-discount" name="discount" type="number" step="0.01" min="0" value="0" />
+                            </div>
+                            <div class="form-group">
+                                <label for="sale-tax">Tax Rate (e.g. 0.1925)</label>
+                                <input id="sale-tax" name="tax_rate" type="number" step="0.0001" min="0" value="0" />
+                            </div>
+                        </div>
+                        <p id="sale-summary" class="sale-summary"></p>
+                        <div class="modal-footer">
+                            <button type="submit" class="btn btn-primary btn-full">Record Sale</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </section>
+
+        <!-- ── Analytics section ──────────────────────────────────────────────── -->
+        <section id="section-analytics" class="content-section" aria-label="Analytics" hidden>
+            <header class="section-header">
+                <h2>Analytics</h2>
+                <div class="header-actions">
+                    <button id="btn-export-products" class="btn btn-sm btn-secondary">⬇ Products CSV</button>
+                    <button id="btn-export-sales" class="btn btn-sm btn-secondary">⬇ Sales CSV</button>
+                </div>
+            </header>
+
+            <div class="chart-grid">
+                <div class="card chart-card chart-card--wide">
+                    <h3 class="card-title">Revenue &amp; Profit (Last 30 days)</h3>
+                    <canvas id="revenue-chart" height="100"></canvas>
+                </div>
+                <div class="card chart-card">
+                    <h3 class="card-title">Top Products</h3>
+                    <canvas id="top-products-chart" height="180"></canvas>
+                </div>
+                <div class="card chart-card">
+                    <h3 class="card-title">Sales by Category</h3>
+                    <canvas id="category-chart" height="180"></canvas>
+                </div>
+            </div>
+
+            <!-- Stock predictions -->
+            <div class="card mt-lg">
+                <h3 class="card-title">📈 Stock Depletion Predictions</h3>
+                <div class="table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th>Stock</th>
+                                <th>Avg Daily Sales</th>
+                                <th>Days Remaining</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="predictions-tbody">
+                            <tr>
+                                <td colspan="5" class="empty-state">Loading…</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Activity log -->
+            <div class="card mt-lg">
+                <h3 class="card-title">🕑 Activity Log</h3>
+                <div class="table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>User</th>
+                                <th>Action</th>
+                                <th>Entity</th>
+                                <th>Detail</th>
+                            </tr>
+                        </thead>
+                        <tbody id="activity-tbody">
+                            <tr>
+                                <td colspan="5" class="empty-state">Loading…</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ── Users section (admin/owner only) ──────────────────────────────── -->
+        <section id="section-users" class="content-section" aria-label="User Management" hidden>
+            <header class="section-header">
+                <h2>Users</h2>
+                <button id="btn-create-clerk" class="btn btn-primary">+ Add Clerk</button>
+            </header>
+            <div class="card">
+                <div class="table-wrapper">
+                    <table class="data-table" aria-label="Users">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Role</th>
+                                <th>Status</th>
+                                <th>Joined</th>
+                            </tr>
+                        </thead>
+                        <tbody id="users-tbody">
+                            <tr>
+                                <td colspan="5" class="empty-state">Loading…</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+    </main><!-- /main-content -->
+
+    <!-- ── Scripts (load order matters) ────────────────────────────────────── -->
+    <script src="/js/api.js"></script>
+    <script src="/js/products.js"></script>
+    <script src="/js/sales.js"></script>
+    <script src="/js/analytics.js"></script>
+
+    <script>
+        /**
+         * dashboard.js — inline navigation and KPI loader.
+         * Kept inline on the HTML page because it only orchestrates the other modules.
+         */
+        (() => {
+            'use strict';
+
+            // ── Auth guard ───────────────────────────────────────────────────────
+            const token = localStorage.getItem('token');
+            const user = JSON.parse(localStorage.getItem('user') || 'null');
+            if (!token || !user) { window.location.href = '/index.html'; return; }
+
+            // Display user name and role in sidebar.
+            document.getElementById('user-display').textContent =
+                `${user.name} · ${user.role}`;
+
+            // Hide admin-only nav items for non-admins/owners.
+            if (!['admin', 'owner'].includes(user.role)) {
+                document.querySelectorAll('.nav-admin-only').forEach(el => el.style.display = 'none');
+            }
+
+            // ── Section navigation ───────────────────────────────────────────────
+            const showSection = (name) => {
+                document.querySelectorAll('.content-section').forEach(s => {
+                    s.classList.remove('active'); s.hidden = true;
+                });
+                document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+                const section = document.getElementById(`section-${name}`);
+                if (section) { section.classList.add('active'); section.hidden = false; }
+                const btn = document.querySelector(`[data-section="${name}"]`);
+                if (btn) { btn.classList.add('active'); btn.setAttribute('aria-current', 'page'); }
+
+                // Lazy-load charts only when analytics tab is first opened.
+                if (name === 'analytics' && window.Analytics) window.Analytics.load();
+                if (name === 'users') loadUsers();
+            };
+
+            window.showSection = showSection;
+
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.addEventListener('click', () => showSection(btn.dataset.section));
+            });
+
+            // ── Logout ────────────────────────────────────────────────────────────
+            document.getElementById('btn-logout').addEventListener('click', () => {
+                localStorage.clear();
+                window.location.href = '/index.html';
+            });
+
+            // ── KPI Metrics ──────────────────────────────────────────────────────
+            const fmt = (n) => Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 });
+
+            const setKpi = (id, value, suffix = '') => {
+                const el = document.getElementById(id)?.querySelector('.kpi-value');
+                if (el) el.textContent = value + suffix;
+            };
+
+            const loadMetrics = async () => {
+                const { ok, data } = await API.get('/analytics/metrics');
+                if (!ok) return;
+                const m = data.data;
+                setKpi('kpi-stock-value', fmt(m.total_stock_value));
+                setKpi('kpi-revenue', fmt(m.total_revenue));
+                setKpi('kpi-profit', fmt(m.total_profit));
+                setKpi('kpi-products', m.total_products || 0);
+                setKpi('kpi-lowstock', m.low_stock_count || 0);
+                setKpi('kpi-sales', m.total_sales || 0);
+
+                // Low-stock list.
+                const list = document.getElementById('low-stock-list');
+                if (m.low_stock_items?.length) {
+                    list.innerHTML = m.low_stock_items
+                        .map(p => `<li><strong>${p.name}</strong> — ${p.quantity} remaining</li>`)
+                        .join('');
+                } else {
+                    list.innerHTML = '<li class="empty-state">All stock levels are healthy ✅</li>';
+                }
+            };
+
+            window.Dashboard = { loadMetrics };
+            loadMetrics();
+
+            // ── Users table ───────────────────────────────────────────────────────
+            const loadUsers = async () => {
+                const tbody = document.getElementById('users-tbody');
+                const { ok, data } = await API.get('/users');
+                if (!ok) return;
+                tbody.innerHTML = data.data.map(u => `
+          <tr>
+            <td>${u.name}</td>
+            <td>${u.email}</td>
+            <td><span class="badge badge-${u.role === 'admin' ? 'primary' : u.role === 'owner' ? 'success' : 'secondary'}">${u.role}</span></td>
+            <td>${u.is_active ? '<span class="badge badge-success">Active</span>' : '<span class="badge badge-danger">Inactive</span>'}</td>
+            <td>${u.created_at?.substring(0, 10) || '—'}</td>
+          </tr>
+        `).join('');
+            };
+
+            document.getElementById('btn-create-clerk')?.addEventListener('click', async () => {
+                const name = prompt('Clerk name:');
+                const email = prompt('Clerk email:');
+                const password = prompt('Temporary password (min 8 chars):');
+                if (!name || !email || !password) return;
+                const { ok, data } = await API.post('/users/clerk', { name, email, password });
+                if (!ok) return alert(data?.message || 'Failed.');
+                alert('Clerk created.'); loadUsers();
+            });
+        })();
+    </script>
 </body>
 
 </html>

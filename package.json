@@ -1,0 +1,60 @@
+{
+    "name": "micro-inventory-desktop",
+    "version": "2.0.0",
+    "description": "Community Micro-Inventory System — Desktop App",
+    "main": "electron/main.js",
+    "scripts": {
+        "electron:dev": "NODE_ENV=development electron .",
+        "electron:build": "electron-builder --win nsis",
+        "electron:pack": "electron-builder --win nsis --dir"
+    },
+    "build": {
+        "appId": "com.microinventory.app",
+        "productName": "Micro-Inventory System",
+        "copyright": "© 2025 Community Micro-Inventory",
+        "directories": {
+            "output": "dist"
+        },
+        "files": [
+            "electron/**/*",
+            "client/**/*"
+        ],
+        "extraResources": [
+            {
+                "from": "server",
+                "to": "server",
+                "filter": [
+                    "**/*",
+                    "!node_modules/**",
+                    "!data/**"
+                ]
+            }
+        ],
+        "win": {
+            "target": [
+                {
+                    "target": "nsis",
+                    "arch": [
+                        "x64"
+                    ]
+                }
+            ],
+            "icon": "electron/assets/icon.ico"
+        },
+        "nsis": {
+            "oneClick": false,
+            "allowToChangeInstallationDirectory": true,
+            "installerIcon": "electron/assets/icon.ico",
+            "uninstallerIcon": "electron/assets/icon.ico",
+            "installerHeaderIcon": "electron/assets/icon.ico",
+            "createDesktopShortcut": true,
+            "createStartMenuShortcut": true,
+            "shortcutName": "Micro-Inventory System",
+            "license": "LICENSE"
+        }
+    },
+    "devDependencies": {
+        "electron": "^29.4.6",
+        "electron-builder": "^24.13.3"
+    }
+}

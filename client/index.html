@@ -1,79 +1,77 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Community Micro-Inventory System – Digital inventory management for small shop owners." />
-  <title>Micro-Inventory | Login</title>
+  <title>Micro-Inventory System — Login</title>
+  <meta name="description" content="Sign in to manage your shop inventory, track sales, and view analytics." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="/css/styles.css" />
 </head>
-<body class="auth-page">
 
-  <div class="auth-container">
+<body class="auth-body">
 
-    <!-- Branding -->
-    <div class="auth-brand">
-      <div class="brand-icon">📦</div>
-      <h1 class="brand-name">MicroStock</h1>
-      <p class="brand-tagline">Smart inventory for your shop</p>
+  <div class="auth-card" role="main">
+    <div class="auth-logo">
+      <span class="logo-icon">📦</span>
+      <h1>Micro-Inventory</h1>
+      <p class="auth-tagline">Smart stock management for every shop</p>
     </div>
 
     <!-- Tab switcher -->
-    <div class="auth-tabs" role="tablist">
-      <button class="tab-btn active" id="tab-login" role="tab" aria-selected="true" aria-controls="panel-login">
-        Login
-      </button>
-      <button class="tab-btn" id="tab-register" role="tab" aria-selected="false" aria-controls="panel-register">
-        Register
-      </button>
+    <div class="auth-tabs" role="tablist" aria-label="Authentication options">
+      <button data-tab="login" class="tab-btn active" role="tab" aria-selected="true" aria-controls="panel-login">Sign
+        In</button>
+      <button data-tab="register" class="tab-btn" role="tab" aria-selected="false" aria-controls="panel-register">Create
+        Account</button>
     </div>
 
-    <!-- Login form -->
-    <div class="auth-panel active" id="panel-login" role="tabpanel" aria-labelledby="tab-login">
-      <form id="login-form" novalidate>
-        <div class="field">
+    <!-- Error banner -->
+    <p id="form-error" class="form-error" role="alert" aria-live="polite"></p>
+
+    <!-- Login panel -->
+    <div id="panel-login" class="auth-panel active" role="tabpanel">
+      <form id="form-login" novalidate autocomplete="on">
+        <div class="form-group">
           <label for="login-email">Email</label>
-          <input type="email" id="login-email" placeholder="you@example.com" autocomplete="email" required />
+          <input id="login-email" name="email" type="email" placeholder="owner@shop.com" required
+            autocomplete="email" />
         </div>
-        <div class="field">
+        <div class="form-group">
           <label for="login-password">Password</label>
-          <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password" required />
+          <input id="login-password" name="password" type="password" placeholder="••••••••" required
+            autocomplete="current-password" />
         </div>
-        <button type="submit" class="btn btn-primary btn-full" id="login-btn">
-          <span class="btn-text">Log In</span>
-          <span class="btn-spinner hidden" aria-hidden="true"></span>
-        </button>
-        <p class="auth-msg" id="login-msg" role="alert"></p>
+        <button type="submit" class="btn btn-primary btn-full">Sign In</button>
       </form>
     </div>
 
-    <!-- Register form -->
-    <div class="auth-panel" id="panel-register" role="tabpanel" aria-labelledby="tab-register">
-      <form id="register-form" novalidate>
-        <div class="field">
+    <!-- Register panel -->
+    <div id="panel-register" class="auth-panel" role="tabpanel" aria-hidden="true">
+      <form id="form-register" novalidate autocomplete="on">
+        <div class="form-group">
           <label for="reg-name">Full Name</label>
-          <input type="text" id="reg-name" placeholder="Amara Nwosu" autocomplete="name" required />
+          <input id="reg-name" name="name" type="text" placeholder="Shop Owner" required autocomplete="name" />
         </div>
-        <div class="field">
+        <div class="form-group">
           <label for="reg-email">Email</label>
-          <input type="email" id="reg-email" placeholder="you@example.com" autocomplete="email" required />
+          <input id="reg-email" name="email" type="email" placeholder="owner@shop.com" required autocomplete="email" />
         </div>
-        <div class="field">
-          <label for="reg-password">Password <small>(min. 8 characters)</small></label>
-          <input type="password" id="reg-password" placeholder="••••••••" autocomplete="new-password" required />
+        <div class="form-group">
+          <label for="reg-password">Password <span class="hint">(min 8 chars)</span></label>
+          <input id="reg-password" name="password" type="password" placeholder="••••••••" required
+            autocomplete="new-password" minlength="8" />
         </div>
-        <button type="submit" class="btn btn-primary btn-full" id="register-btn">
-          <span class="btn-text">Create Account</span>
-          <span class="btn-spinner hidden" aria-hidden="true"></span>
-        </button>
-        <p class="auth-msg" id="register-msg" role="alert"></p>
+        <button type="submit" class="btn btn-primary btn-full">Create Account</button>
       </form>
     </div>
+  </div>
 
-  </div><!-- /.auth-container -->
-
-  <script src="js/app.js"></script>
+  <!-- Load api.js first (sets up window.API), then auth.js -->
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
 </body>
+
 </html>

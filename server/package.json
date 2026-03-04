@@ -1,7 +1,7 @@
 {
-  "name": "micro-inventory-server",
-  "version": "1.0.0",
-  "description": "Backend API for the Community Micro-Inventory System",
+  "name": "micro-inventory-server-v2",
+  "version": "2.0.0",
+  "description": "Community Micro-Inventory System v2 — Extended backend API with roles, analytics, and smart features",
   "main": "app.js",
   "scripts": {
     "start": "node app.js",
@@ -26,7 +26,9 @@
     "express",
     "sqlite",
     "jwt",
-    "micro-business"
+    "analytics",
+    "micro-business",
+    "cameroon"
   ],
   "author": "Community Micro-Inventory System",
   "license": "MIT"
