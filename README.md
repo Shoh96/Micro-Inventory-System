@@ -315,7 +315,8 @@ The Community Micro-Inventory System is a full-stack web application built with 
 
 ## Screenshots
 
-*Screenshots will be added following initial deployment.*
+<img width="1915" height="1013" alt="Screenshot 2026-03-04 132053" src="https://github.com/user-attachments/assets/6572e645-219d-46f1-aa63-162d7f818c17" />
+<img width="1916" height="1012" alt="Screenshot 2026-03-04 132034" src="https://github.com/user-attachments/assets/aa869081-59b0-4f52-8521-623980e7436c" />
 
 ---
 
