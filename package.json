@@ -1,6 +1,6 @@
 {
     "name": "micro-inventory-desktop",
-    "version": "2.0.0",
+    "version": "3.0.0",
     "description": "Community Micro-Inventory System — Desktop App",
     "main": "electron/main.js",
     "scripts": {
@@ -25,7 +25,6 @@
                 "to": "server",
                 "filter": [
                     "**/*",
-                    "!node_modules/**",
                     "!data/**"
                 ]
             }
@@ -38,19 +37,14 @@
                         "x64"
                     ]
                 }
-            ],
-            "icon": "electron/assets/icon.ico"
+            ]
         },
         "nsis": {
             "oneClick": false,
             "allowToChangeInstallationDirectory": true,
-            "installerIcon": "electron/assets/icon.ico",
-            "uninstallerIcon": "electron/assets/icon.ico",
-            "installerHeaderIcon": "electron/assets/icon.ico",
             "createDesktopShortcut": true,
             "createStartMenuShortcut": true,
-            "shortcutName": "Micro-Inventory System",
-            "license": "LICENSE"
+            "shortcutName": "Micro-Inventory System"
         }
     },
     "devDependencies": {

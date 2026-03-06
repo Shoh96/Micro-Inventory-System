@@ -28,18 +28,18 @@ const db = require('../config/db');
  * @param {number} d.total_profit    — pre-calculated net profit
  */
 const createSale = (d) => {
-    const info = db.prepare(`
+  const info = db.prepare(`
     INSERT INTO sales
       (owner_id, product_id, clerk_id, quantity_sold,
        selling_price_at_sale, cost_price_at_sale,
        discount, tax_rate, total_revenue, total_profit)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
-        d.owner_id, d.product_id, d.clerk_id, d.quantity_sold,
-        d.selling_price_at_sale, d.cost_price_at_sale,
-        d.discount, d.tax_rate, d.total_revenue, d.total_profit,
-    );
-    return db.prepare('SELECT * FROM sales WHERE id = ?').get(info.lastInsertRowid);
+    d.owner_id, d.product_id, d.clerk_id, d.quantity_sold,
+    d.selling_price_at_sale, d.cost_price_at_sale,
+    d.discount, d.tax_rate, d.total_revenue, d.total_profit,
+  );
+  return db.prepare('SELECT * FROM sales WHERE id = ?').get(info.lastInsertRowid);
 };
 
 /**
@@ -52,7 +52,7 @@ const createSale = (d) => {
  * @param {number} [limit=200]
  */
 const getSalesByOwner = (ownerId, limit = 200) =>
-    db.prepare(`
+  db.prepare(`
     SELECT
       s.*,
       COALESCE(p.name, '(deleted product)') AS product_name,
@@ -65,4 +65,20 @@ const getSalesByOwner = (ownerId, limit = 200) =>
     LIMIT ?
   `).all(ownerId, limit);
 
-module.exports = { createSale, getSalesByOwner };
+
+/** getAllSales — returns ALL sales across all owners (admin use only, max 500 rows) */
+const getAllSales = (limit = 500) =>
+  db.prepare(`
+    SELECT
+      s.*,
+      COALESCE(p.name, '(deleted product)') AS product_name,
+      COALESCE(u.name, '(unknown clerk)')   AS clerk_name
+    FROM sales s
+    LEFT JOIN products p ON s.product_id = p.id
+    LEFT JOIN users    u ON s.clerk_id   = u.id
+    ORDER BY s.sale_date DESC
+    LIMIT ?
+  `).all(limit);
+
+module.exports = { createSale, getSalesByOwner, getAllSales };
+

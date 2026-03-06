@@ -20,7 +20,6 @@ const { logActivity: _log } = require('../models/activityLog');
 const { getActivityLog } = require('../models/activityLog');
 const { predictStockDepletion } = require('../utils/stockPredictor');
 const { toCsv } = require('../utils/exportHelper');
-const { LOW_STOCK_THRESHOLD } = require('../models/product');
 
 const resolveOwnerId = (user) => (user.role === 'clerk' ? user.owner_id : user.id);
 
@@ -29,11 +28,11 @@ const resolveOwnerId = (user) => (user.role === 'clerk' ? user.owner_id : user.i
  * @route GET /api/analytics/metrics
  */
 const getMetrics = (req, res, next) => {
-    try {
-        const ownerId = resolveOwnerId(req.user);
+  try {
+    const ownerId = resolveOwnerId(req.user);
 
-        // ── Inventory aggregation ────────────────────────────────────────────────
-        const inv = db.prepare(`
+    // ── Inventory aggregation ────────────────────────────────────────────────
+    const inv = db.prepare(`
       SELECT
         COALESCE(SUM(cost_price * quantity),    0) AS total_stock_value,
         COALESCE(SUM(selling_price * quantity), 0) AS potential_revenue,
@@ -41,8 +40,8 @@ const getMetrics = (req, res, next) => {
       FROM products WHERE owner_id = ?
     `).get(ownerId);
 
-        // ── Sales aggregation ─────────────────────────────────────────────────────
-        const sal = db.prepare(`
+    // ── Sales aggregation ─────────────────────────────────────────────────────
+    const sal = db.prepare(`
       SELECT
         COALESCE(SUM(total_profit),  0) AS total_profit,
         COALESCE(SUM(total_revenue), 0) AS total_revenue,
@@ -50,19 +49,54 @@ const getMetrics = (req, res, next) => {
       FROM sales WHERE owner_id = ?
     `).get(ownerId);
 
-        // ── Low-stock ─────────────────────────────────────────────────────────────
-        const low = db.prepare(`
+    // ── Low-stock ─────────────────────────────────────────────────────────────
+    const shopSettings = require('../models/shopSettings').getSettings(ownerId);
+    const threshold = shopSettings.low_stock_threshold;
+
+    const low = db.prepare(`
       SELECT COUNT(*) AS low_stock_count FROM products
       WHERE owner_id = ? AND quantity <= ?
-    `).get(ownerId, LOW_STOCK_THRESHOLD);
+    `).get(ownerId, threshold);
 
-        const lowStockItems = productModel.getLowStockProducts(ownerId);
+    const lowStockItems = productModel.getLowStockProducts(ownerId);
 
-        return res.status(200).json({
-            success: true,
-            data: { ...inv, ...sal, ...low, low_stock_threshold: LOW_STOCK_THRESHOLD, low_stock_items: lowStockItems },
-        });
-    } catch (err) { next(err); }
+    return res.status(200).json({
+      success: true,
+      data: { ...inv, ...sal, ...low, low_stock_threshold: threshold, low_stock_items: lowStockItems },
+    });
+  } catch (err) { next(err); }
+};
+
+/**
+ * getAdminMetrics — System-level KPIs for Admin dashboard.
+ * @route GET /api/analytics/admin-metrics
+ */
+const getAdminMetrics = (req, res, next) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Admin access required.' });
+    }
+
+    const usersStats = db.prepare(`
+            SELECT
+                SUM(CASE WHEN role = 'owner' THEN 1 ELSE 0 END) AS total_owners,
+                SUM(CASE WHEN role = 'clerk' THEN 1 ELSE 0 END) AS total_clerks,
+                COUNT(id) AS total_users
+            FROM users WHERE role != 'admin'
+        `).get();
+
+    const globalSales = db.prepare(`
+            SELECT
+                COUNT(id) AS total_transactions,
+                COALESCE(SUM(total_revenue), 0) AS total_system_revenue
+            FROM sales
+        `).get();
+
+    return res.status(200).json({
+      success: true,
+      data: { ...usersStats, ...globalSales }
+    });
+  } catch (err) { next(err); }
 };
 
 /**
@@ -78,11 +112,11 @@ const getMetrics = (req, res, next) => {
  * @route GET /api/analytics/revenue?days=30
  */
 const getRevenueOverTime = (req, res, next) => {
-    try {
-        const ownerId = resolveOwnerId(req.user);
-        const days = parseInt(req.query.days || '30', 10);
+  try {
+    const ownerId = resolveOwnerId(req.user);
+    const days = parseInt(req.query.days || '30', 10);
 
-        const rows = db.prepare(`
+    const rows = db.prepare(`
       SELECT
         date(sale_date)           AS sale_day,
         ROUND(SUM(total_revenue), 2) AS revenue,
@@ -95,8 +129,8 @@ const getRevenueOverTime = (req, res, next) => {
       ORDER BY sale_day ASC
     `).all(ownerId, `-${days}`);
 
-        return res.status(200).json({ success: true, data: rows });
-    } catch (err) { next(err); }
+    return res.status(200).json({ success: true, data: rows });
+  } catch (err) { next(err); }
 };
 
 /**
@@ -107,12 +141,12 @@ const getRevenueOverTime = (req, res, next) => {
  * @route GET /api/analytics/top-products?limit=10&days=30
  */
 const getTopProducts = (req, res, next) => {
-    try {
-        const ownerId = resolveOwnerId(req.user);
-        const limit = parseInt(req.query.limit || '10', 10);
-        const days = parseInt(req.query.days || '30', 10);
+  try {
+    const ownerId = resolveOwnerId(req.user);
+    const limit = parseInt(req.query.limit || '10', 10);
+    const days = parseInt(req.query.days || '30', 10);
 
-        const rows = db.prepare(`
+    const rows = db.prepare(`
       SELECT
         p.id,
         COALESCE(p.name, '(deleted)') AS name,
@@ -128,8 +162,8 @@ const getTopProducts = (req, res, next) => {
       LIMIT ?
     `).all(ownerId, `-${days}`, limit);
 
-        return res.status(200).json({ success: true, data: rows });
-    } catch (err) { next(err); }
+    return res.status(200).json({ success: true, data: rows });
+  } catch (err) { next(err); }
 };
 
 /**
@@ -144,10 +178,10 @@ const getTopProducts = (req, res, next) => {
  * @route GET /api/analytics/categories
  */
 const getCategoryBreakdown = (req, res, next) => {
-    try {
-        const ownerId = resolveOwnerId(req.user);
+  try {
+    const ownerId = resolveOwnerId(req.user);
 
-        const rows = db.prepare(`
+    const rows = db.prepare(`
       SELECT
         COALESCE(c.name, 'Uncategorised')  AS category,
         SUM(s.quantity_sold)               AS total_qty,
@@ -161,8 +195,8 @@ const getCategoryBreakdown = (req, res, next) => {
       ORDER BY total_revenue DESC
     `).all(ownerId);
 
-        return res.status(200).json({ success: true, data: rows });
-    } catch (err) { next(err); }
+    return res.status(200).json({ success: true, data: rows });
+  } catch (err) { next(err); }
 };
 
 /**
@@ -170,12 +204,12 @@ const getCategoryBreakdown = (req, res, next) => {
  * @route GET /api/analytics/stock-predictions?days=30
  */
 const getStockPredictions = (req, res, next) => {
-    try {
-        const ownerId = resolveOwnerId(req.user);
-        const days = parseInt(req.query.days || '30', 10);
-        const data = predictStockDepletion(ownerId, days);
-        return res.status(200).json({ success: true, data });
-    } catch (err) { next(err); }
+  try {
+    const ownerId = resolveOwnerId(req.user);
+    const days = parseInt(req.query.days || '30', 10);
+    const data = predictStockDepletion(ownerId, days);
+    return res.status(200).json({ success: true, data });
+  } catch (err) { next(err); }
 };
 
 /**
@@ -183,11 +217,11 @@ const getStockPredictions = (req, res, next) => {
  * @route GET /api/analytics/activity?limit=50
  */
 const getLog = (req, res, next) => {
-    try {
-        const ownerId = resolveOwnerId(req.user);
-        const limit = parseInt(req.query.limit || '50', 10);
-        return res.status(200).json({ success: true, data: getActivityLog(ownerId, limit) });
-    } catch (err) { next(err); }
+  try {
+    const ownerId = resolveOwnerId(req.user);
+    const limit = parseInt(req.query.limit || '50', 10);
+    return res.status(200).json({ success: true, data: getActivityLog(ownerId, limit) });
+  } catch (err) { next(err); }
 };
 
 /**
@@ -196,9 +230,9 @@ const getLog = (req, res, next) => {
  * @route GET /api/analytics/export/sales
  */
 const exportSalesCsv = (req, res, next) => {
-    try {
-        const ownerId = resolveOwnerId(req.user);
-        const rows = db.prepare(`
+  try {
+    const ownerId = resolveOwnerId(req.user);
+    const rows = db.prepare(`
       SELECT
         s.id, date(s.sale_date) AS date,
         COALESCE(p.name,'(deleted)') AS product,
@@ -210,11 +244,11 @@ const exportSalesCsv = (req, res, next) => {
       ORDER BY s.sale_date DESC
     `).all(ownerId);
 
-        const csv = toCsv(rows);
-        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-        res.setHeader('Content-Disposition', 'attachment; filename="sales_export.csv"');
-        return res.status(200).send(csv);
-    } catch (err) { next(err); }
+    const csv = toCsv(rows);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="sales_export.csv"');
+    return res.status(200).send(csv);
+  } catch (err) { next(err); }
 };
 
 /**
@@ -222,9 +256,9 @@ const exportSalesCsv = (req, res, next) => {
  * @route GET /api/analytics/export/products
  */
 const exportProductsCsv = (req, res, next) => {
-    try {
-        const ownerId = resolveOwnerId(req.user);
-        const rows = db.prepare(`
+  try {
+    const ownerId = resolveOwnerId(req.user);
+    const rows = db.prepare(`
       SELECT
         p.id, p.name, c.name AS category, s.name AS supplier,
         p.quantity, p.cost_price, p.selling_price,
@@ -237,15 +271,188 @@ const exportProductsCsv = (req, res, next) => {
       ORDER BY p.name ASC
     `).all(ownerId);
 
-        const csv = toCsv(rows);
-        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-        res.setHeader('Content-Disposition', 'attachment; filename="products_export.csv"');
-        return res.status(200).send(csv);
-    } catch (err) { next(err); }
+    const csv = toCsv(rows);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="products_export.csv"');
+    return res.status(200).send(csv);
+  } catch (err) { next(err); }
+};
+
+
+
+const shopSettingsModel = require('../models/shopSettings');
+
+/**
+ * getOwnerList
+ * Returns all owner users with their opt-in visibility status.
+ * Used by admin to build the owner selector in analytics.
+ * @route GET /api/analytics/owners
+ */
+const getOwnerList = (req, res, next) => {
+  try {
+    if (req.user.role !== 'admin') return res.status(403).json({ success: false, message: 'Admin only.' });
+
+    const owners = db.prepare(`SELECT id, name, email FROM users WHERE role = 'owner' AND is_active = 1`).all();
+
+    const result = owners.map(o => {
+      const settings = shopSettingsModel.getSettings(o.id);
+      return {
+        id: o.id,
+        name: o.name,
+        email: o.email,
+        shop_name: settings.shop_name,
+        allow_admin_visibility: settings.allow_admin_visibility === 1,
+      };
+    });
+
+    return res.status(200).json({ success: true, data: result });
+  } catch (err) { next(err); }
+};
+
+/**
+ * getOwnerMetrics
+ * Returns full KPIs + low-stock for a specific owner, if they have opted in.
+ * @route GET /api/analytics/owner-metrics?owner_id=X
+ */
+const getOwnerMetrics = (req, res, next) => {
+  try {
+    if (req.user.role !== 'admin') return res.status(403).json({ success: false, message: 'Admin only.' });
+
+    const ownerId = parseInt(req.query.owner_id, 10);
+    if (!ownerId) return res.status(400).json({ success: false, message: 'owner_id query param required.' });
+
+    // Check opt-in
+    const settings = shopSettingsModel.getSettings(ownerId);
+    if (!settings.allow_admin_visibility) {
+      return res.status(403).json({ success: false, message: 'This owner has not opted in to admin visibility.' });
+    }
+
+    const inv = db.prepare(`
+      SELECT
+        COALESCE(SUM(cost_price * quantity),    0) AS total_stock_value,
+        COALESCE(SUM(selling_price * quantity), 0) AS potential_revenue,
+        COUNT(*) AS total_products
+      FROM products WHERE owner_id = ?
+    `).get(ownerId);
+
+    const sal = db.prepare(`
+      SELECT
+        COALESCE(SUM(total_profit),  0) AS total_profit,
+        COALESCE(SUM(total_revenue), 0) AS total_revenue,
+        COUNT(*) AS total_sales
+      FROM sales WHERE owner_id = ?
+    `).get(ownerId);
+
+    const threshold = settings.low_stock_threshold;
+    const low = db.prepare(`
+      SELECT COUNT(*) AS low_stock_count FROM products
+      WHERE owner_id = ? AND quantity <= ?
+    `).get(ownerId, threshold);
+
+    const lowStockItems = productModel.getLowStockProducts(ownerId);
+
+    // Products list
+    const products = db.prepare(`
+      SELECT p.name, p.quantity, p.cost_price, p.selling_price,
+             c.name AS category_name, s.name AS supplier_name
+      FROM products p
+      LEFT JOIN categories c ON p.category_id = c.id
+      LEFT JOIN suppliers  s ON p.supplier_id  = s.id
+      WHERE p.owner_id = ?
+      ORDER BY p.name ASC
+    `).all(ownerId);
+
+    // Recent sales
+    const sales = db.prepare(`
+      SELECT s.sale_date, p.name AS product_name, s.quantity_sold,
+             s.selling_price_at_sale, s.total_revenue, s.total_profit
+      FROM sales s
+      JOIN products p ON s.product_id = p.id
+      WHERE s.owner_id = ?
+      ORDER BY s.sale_date DESC
+      LIMIT 20
+    `).all(ownerId);
+
+    // Revenue over time (last 30 days)
+    const revenue = db.prepare(`
+      SELECT date(sale_date) AS sale_day,
+             ROUND(SUM(total_revenue), 2) AS revenue,
+             ROUND(SUM(total_profit),  2) AS profit,
+             COUNT(*) AS transactions
+      FROM sales WHERE owner_id = ?
+        AND sale_date >= datetime('now', '-30 days')
+      GROUP BY sale_day
+      ORDER BY sale_day ASC
+    `).all(ownerId);
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        shop_name: settings.shop_name,
+        currency: settings.currency,
+        ...inv, ...sal, ...low,
+        low_stock_threshold: threshold,
+        low_stock_items: lowStockItems,
+        products,
+        sales,
+        revenue,
+      },
+    });
+  } catch (err) { next(err); }
+};
+
+/**
+ * getOwnerComparison
+ * Returns side-by-side KPI summaries for multiple opted-in owners.
+ * @route GET /api/analytics/owner-comparison?owner_ids=1,2,3
+ */
+const getOwnerComparison = (req, res, next) => {
+  try {
+    if (req.user.role !== 'admin') return res.status(403).json({ success: false, message: 'Admin only.' });
+
+    const ids = (req.query.owner_ids || '').split(',').map(Number).filter(Boolean);
+    if (!ids.length) return res.status(400).json({ success: false, message: 'owner_ids query param required.' });
+
+    const result = ids.map(ownerId => {
+      const settings = shopSettingsModel.getSettings(ownerId);
+      if (!settings.allow_admin_visibility) return null;
+
+      const owner = db.prepare(`SELECT name FROM users WHERE id = ?`).get(ownerId);
+
+      const inv = db.prepare(`
+        SELECT COALESCE(SUM(cost_price * quantity), 0) AS total_stock_value,
+               COUNT(*) AS total_products
+        FROM products WHERE owner_id = ?
+      `).get(ownerId);
+
+      const sal = db.prepare(`
+        SELECT COALESCE(SUM(total_profit),  0) AS total_profit,
+               COALESCE(SUM(total_revenue), 0) AS total_revenue,
+               COUNT(*) AS total_sales
+        FROM sales WHERE owner_id = ?
+      `).get(ownerId);
+
+      const low = db.prepare(`
+        SELECT COUNT(*) AS low_stock_count FROM products
+        WHERE owner_id = ? AND quantity <= ?
+      `).get(ownerId, settings.low_stock_threshold);
+
+      return {
+        owner_id: ownerId,
+        owner_name: owner?.name || 'Unknown',
+        shop_name: settings.shop_name,
+        currency: settings.currency,
+        ...inv, ...sal, ...low,
+      };
+    }).filter(Boolean); // remove owners who have not opted in
+
+    return res.status(200).json({ success: true, data: result });
+  } catch (err) { next(err); }
 };
 
 module.exports = {
-    getMetrics, getRevenueOverTime, getTopProducts,
-    getCategoryBreakdown, getStockPredictions, getLog,
-    exportSalesCsv, exportProductsCsv,
+  getMetrics, getAdminMetrics, getRevenueOverTime, getTopProducts,
+  getCategoryBreakdown, getStockPredictions, getLog,
+  exportSalesCsv, exportProductsCsv,
+  getOwnerList, getOwnerMetrics, getOwnerComparison,
 };

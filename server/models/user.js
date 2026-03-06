@@ -19,11 +19,11 @@ const db = require('../config/db');
  * @param {{name,email,password_hash,role,owner_id}} data
  */
 const createUser = ({ name, email, password_hash, role = 'owner', owner_id = null }) => {
-    const info = db.prepare(`
+  const info = db.prepare(`
     INSERT INTO users (name, email, password_hash, role, owner_id)
     VALUES (?, ?, ?, ?, ?)
   `).run(name, email, password_hash, role, owner_id);
-    return findUserById(info.lastInsertRowid);
+  return findUserById(info.lastInsertRowid);
 };
 
 /**
@@ -31,14 +31,14 @@ const createUser = ({ name, email, password_hash, role = 'owner', owner_id = nul
  * @param {string} email
  */
 const findUserByEmail = (email) =>
-    db.prepare('SELECT * FROM users WHERE email = ? AND is_active = 1').get(email);
+  db.prepare('SELECT * FROM users WHERE email = ? AND is_active = 1').get(email);
 
 /**
  * findUserById — excludes password_hash.
  * @param {number} id
  */
 const findUserById = (id) =>
-    db.prepare('SELECT id, name, email, role, owner_id, is_active, created_at FROM users WHERE id = ?').get(id);
+  db.prepare('SELECT id, name, email, role, owner_id, is_active, created_at FROM users WHERE id = ?').get(id);
 
 /**
  * getUsersByOwner — list all clerks belonging to a given owner.
@@ -46,13 +46,13 @@ const findUserById = (id) =>
  * @param {number|null} ownerId
  */
 const getUsersByOwner = (ownerId) => {
-    if (ownerId === null) {
-        // Admin view — all users.
-        return db.prepare(`
+  if (ownerId === null) {
+    // Admin view — all users.
+    return db.prepare(`
       SELECT id, name, email, role, owner_id, is_active, created_at FROM users ORDER BY created_at DESC
     `).all();
-    }
-    return db.prepare(`
+  }
+  return db.prepare(`
     SELECT id, name, email, role, owner_id, is_active, created_at
     FROM users WHERE owner_id = ? OR id = ? ORDER BY created_at DESC
   `).all(ownerId, ownerId);
@@ -64,8 +64,8 @@ const getUsersByOwner = (ownerId) => {
  * @param {string} newRole — 'admin' | 'owner' | 'clerk'
  */
 const updateUserRole = (userId, newRole) => {
-    db.prepare('UPDATE users SET role = ? WHERE id = ?').run(newRole, userId);
-    return findUserById(userId);
+  db.prepare('UPDATE users SET role = ? WHERE id = ?').run(newRole, userId);
+  return findUserById(userId);
 };
 
 /**
@@ -74,7 +74,16 @@ const updateUserRole = (userId, newRole) => {
  * @param {number} userId
  */
 const deactivateUser = (userId) => {
-    db.prepare('UPDATE users SET is_active = 0 WHERE id = ?').run(userId);
+  db.prepare('UPDATE users SET is_active = 0 WHERE id = ?').run(userId);
 };
 
-module.exports = { createUser, findUserByEmail, findUserById, getUsersByOwner, updateUserRole, deactivateUser };
+/**
+ * updateUserPassword — changes a user's password.
+ * @param {number} userId
+ * @param {string} newHash
+ */
+const updateUserPassword = (userId, newHash) => {
+  db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(newHash, userId);
+};
+
+module.exports = { createUser, findUserByEmail, findUserById, getUsersByOwner, updateUserRole, updateUserPassword, deactivateUser };

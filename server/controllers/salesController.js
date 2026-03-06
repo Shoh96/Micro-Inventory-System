@@ -99,12 +99,25 @@ const recordSale = (req, res, next) => {
 
 /**
  * getSales — returns sale history enriched with product and clerk names.
+ * Admin with no owner_id filter returns ALL sales across all owners.
  * @route GET /api/sales
  */
 const getSales = (req, res, next) => {
     try {
-        const sales = saleModel.getSalesByOwner(resolveOwnerId(req.user));
-        return res.status(200).json({ success: true, data: sales });
+        let sales;
+        if (req.user.role === 'admin') {
+            if (req.query.owner_id) {
+                const ownerId = parseInt(req.query.owner_id, 10);
+                sales = saleModel.getSalesByOwner(ownerId);
+            } else {
+                // Return all sales across all owners
+                sales = saleModel.getAllSales ? saleModel.getAllSales() : saleModel.getSalesByOwner(null);
+            }
+        } else {
+            const ownerId = resolveOwnerId(req.user);
+            sales = saleModel.getSalesByOwner(ownerId);
+        }
+        return res.status(200).json({ success: true, data: sales || [] });
     } catch (err) { next(err); }
 };
 

@@ -49,6 +49,7 @@ db.exec(`
     password_hash TEXT    NOT NULL,
     role          TEXT    NOT NULL DEFAULT 'owner' CHECK(role IN ('admin','owner','clerk')),
     owner_id      INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    branch_id     INTEGER,  -- populated for clerks assigned to a branch
     is_active     INTEGER NOT NULL DEFAULT 1,
     created_at    TEXT    NOT NULL DEFAULT (datetime('now'))
   );
@@ -61,6 +62,37 @@ db.exec(`
     name       TEXT    NOT NULL,
     created_at TEXT    NOT NULL DEFAULT (datetime('now')),
     UNIQUE(owner_id, name)
+  );
+
+  -- ── Shops ────────────────────────────────────────────────────────────────────
+  -- An owner can have multiple shops. Each shop has its own configuration.
+  -- Products/sales/categories/suppliers are still owner-scoped (shared pool).
+  CREATE TABLE IF NOT EXISTS shops (
+    id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+    owner_id                INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name                    TEXT    NOT NULL DEFAULT 'My Shop',
+    address                 TEXT    DEFAULT '',
+    currency                TEXT    NOT NULL DEFAULT 'XAF',
+    low_stock_threshold     INTEGER NOT NULL DEFAULT 10,
+    tax_percentage          REAL    NOT NULL DEFAULT 0,
+    allow_admin_visibility  INTEGER NOT NULL DEFAULT 0,
+    created_at              TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
+
+  -- ── Branches ─────────────────────────────────────────────────────────────────
+  -- Each shop can have one or more branches.
+  -- shop_id links branch to its parent shop.
+  -- Clerks are assigned to a branch via users.branch_id.
+  CREATE TABLE IF NOT EXISTS branches (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    shop_id    INTEGER NOT NULL REFERENCES shops(id) ON DELETE CASCADE,
+    owner_id   INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name       TEXT    NOT NULL,
+    address    TEXT    DEFAULT '',
+    phone      TEXT    DEFAULT '',
+    is_active  INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT    NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(shop_id, name)
   );
 
   -- ── Suppliers ──────────────────────────────────────────────────────────────
@@ -128,6 +160,71 @@ db.exec(`
     detail      TEXT    DEFAULT '',
     created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
   );
+  -- ── Shop Settings (legacy — kept for migration only; new code uses shops table) ─
+  CREATE TABLE IF NOT EXISTS shop_settings (
+    id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+    owner_id                INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+    shop_name               TEXT    NOT NULL DEFAULT 'My Shop',
+    shop_address            TEXT    DEFAULT '',
+    currency                TEXT    NOT NULL DEFAULT 'XAF',
+    low_stock_threshold     INTEGER NOT NULL DEFAULT 10,
+    tax_percentage          REAL    NOT NULL DEFAULT 0,
+    logo_url                TEXT    DEFAULT '',
+    enable_low_stock_alerts INTEGER NOT NULL DEFAULT 1,
+    enable_sales_summary    INTEGER NOT NULL DEFAULT 1,
+    allow_admin_visibility  INTEGER NOT NULL DEFAULT 0,
+    updated_at              TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
 `);
 
+// ── Safe Migrations (run on every startup, all idempotent) ─────────────────
+const migrations = [
+  // Legacy migrations
+  `ALTER TABLE shop_settings ADD COLUMN allow_admin_visibility INTEGER NOT NULL DEFAULT 0`,
+  `ALTER TABLE users ADD COLUMN branch_id INTEGER`,
+  // New shops table
+  `CREATE TABLE IF NOT EXISTS shops (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    owner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL DEFAULT 'My Shop',
+    address TEXT DEFAULT '',
+    currency TEXT NOT NULL DEFAULT 'XAF',
+    low_stock_threshold INTEGER NOT NULL DEFAULT 10,
+    tax_percentage REAL NOT NULL DEFAULT 0,
+    allow_admin_visibility INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`,
+  // shop_id on branches
+  `ALTER TABLE branches ADD COLUMN shop_id INTEGER`,
+  `ALTER TABLE branches ADD COLUMN owner_id INTEGER`,
+];
+migrations.forEach(sql => { try { db.prepare(sql).run(); } catch (_) { } });
+
+// Seed shops from legacy shop_settings if shops table is empty
+try {
+  const shopCount = db.prepare('SELECT COUNT(*) as c FROM shops').get().c;
+  if (shopCount === 0) {
+    const settings = db.prepare('SELECT * FROM shop_settings').all();
+    const insertShop = db.prepare(
+      `INSERT INTO shops (owner_id, name, currency, low_stock_threshold, tax_percentage, allow_admin_visibility)
+       VALUES (?, ?, ?, ?, ?, ?)`
+    );
+    const updateBranch = db.prepare('UPDATE branches SET shop_id = ?, owner_id = ? WHERE owner_id = ?');
+    settings.forEach(s => {
+      const info = insertShop.run(s.owner_id, s.shop_name || 'My Shop', s.currency || 'XAF',
+        s.low_stock_threshold || 10, s.tax_percentage || 0, s.allow_admin_visibility || 0);
+      updateBranch.run(info.lastInsertRowid, s.owner_id, s.owner_id);
+    });
+  } else {
+    // Backfill shop_id on branches that have owner_id but no shop_id
+    const orphans = db.prepare('SELECT DISTINCT owner_id FROM branches WHERE shop_id IS NULL').all();
+    orphans.forEach(({ owner_id }) => {
+      const shop = db.prepare('SELECT id FROM shops WHERE owner_id = ? LIMIT 1').get(owner_id);
+      if (shop) db.prepare('UPDATE branches SET shop_id = ?, owner_id = ? WHERE owner_id = ? AND shop_id IS NULL')
+        .run(shop.id, owner_id, owner_id);
+    });
+  }
+} catch (_) { }
+
 module.exports = db;
+

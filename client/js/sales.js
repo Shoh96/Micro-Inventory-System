@@ -83,10 +83,19 @@
         if (window.Dashboard) window.Dashboard.loadMetrics();
     });
 
-    // ── Sales history table ───────────────────────────────────────────────────
+    const getAdminSalesOwnerId = () => {
+        const sel = document.getElementById('admin-sales-owner');
+        return sel?.value || null;
+    };
 
     const loadSales = async () => {
-        const { ok, data } = await API.get('/sales');
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        let url = '/sales';
+        if (user.role === 'admin') {
+            const ownerId = getAdminSalesOwnerId();
+            if (ownerId) url = `/sales?owner_id=${ownerId}`;
+        }
+        const { ok, data } = await API.get(url);
         if (!ok || !data?.data) return;
         const sales = data.data;
 
@@ -97,7 +106,7 @@
 
         salesTbody.innerHTML = sales.map(s => `
       <tr>
-        <td>${s.sale_date?.substring(0, 10) || '—'}</td>
+        <td>${s.sale_date?.substring(0, 10) || '\u2014'}</td>
         <td>${escHtml(s.product_name)}</td>
         <td>${s.quantity_sold}</td>
         <td>${Number(s.selling_price_at_sale).toLocaleString()}</td>
@@ -107,9 +116,56 @@
         <td class="profit-cell">${Number(s.total_profit).toLocaleString()}</td>
       </tr>
     `).join('');
+
+        renderSalesAnalytics(sales);
+    };
+
+    /** Render KPI summary strip for admin sales analytics */
+    const renderSalesAnalytics = (sales) => {
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        const strip = document.getElementById('admin-sales-analytics');
+        if (!strip || user.role !== 'admin') return;
+        if (!sales || !sales.length) { strip.style.display = 'none'; return; }
+
+        const totalRevenue = sales.reduce((s, r) => s + Number(r.total_revenue), 0);
+        const totalProfit = sales.reduce((s, r) => s + Number(r.total_profit), 0);
+        const totalQty = sales.reduce((s, r) => s + Number(r.quantity_sold), 0);
+        const avgOrder = totalRevenue / sales.length;
+        const margin = totalRevenue > 0 ? ((totalProfit / totalRevenue) * 100).toFixed(1) : '0.0';
+        const fmt = n => Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 });
+
+        strip.style.display = 'grid';
+        strip.innerHTML = `
+          <div class="kpi-mini"><span class="kpi-mini-label">Total Revenue</span><span class="kpi-mini-val">${fmt(totalRevenue)} <small>XAF</small></span></div>
+          <div class="kpi-mini"><span class="kpi-mini-label">Total Profit</span><span class="kpi-mini-val">${fmt(totalProfit)} <small>XAF</small></span></div>
+          <div class="kpi-mini"><span class="kpi-mini-label"># Sales</span><span class="kpi-mini-val">${sales.length}</span></div>
+          <div class="kpi-mini"><span class="kpi-mini-label">Units Sold</span><span class="kpi-mini-val">${fmt(totalQty)}</span></div>
+          <div class="kpi-mini"><span class="kpi-mini-label">Avg Order</span><span class="kpi-mini-val">${fmt(avgOrder)}</span></div>
+          <div class="kpi-mini"><span class="kpi-mini-label">Profit Margin</span><span class="kpi-mini-val">${margin}%</span></div>
+        `;
+    };
+
+    /** Build admin sales owner selector if admin */
+    const initAdminSalesOwnerSelector = async () => {
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        if (user.role !== 'admin') return;
+        const container = document.getElementById('admin-sales-filter');
+        if (!container) return;
+        container.style.display = 'flex';
+        const sel = document.getElementById('admin-sales-owner');
+        if (!sel) return;
+        try {
+            const res = await API.get('/users');
+            const owners = (res.data?.data || []).filter(u => u.role === 'owner');
+            sel.innerHTML = '<option value="">— All Owners —</option>' +
+                owners.map(o => `<option value="${o.id}">${o.name}</option>`).join('');
+            sel.addEventListener('change', loadSales);
+        } catch (_) { }
     };
 
     window.Sales = { load: loadSales, openQuick };
 
     loadSales();
+    initAdminSalesOwnerSelector();
 })();
+

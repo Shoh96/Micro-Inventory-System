@@ -25,7 +25,7 @@ const SALT_ROUNDS = 12;
 
 const signToken = (user) =>
     jwt.sign(
-        { id: user.id, email: user.email, name: user.name, role: user.role },
+        { id: user.id, email: user.email, name: user.name, role: user.role, owner_id: user.owner_id },
         process.env.JWT_SECRET,
         { expiresIn: process.env.JWT_EXPIRES_IN || '7d' },
     );
@@ -58,6 +58,12 @@ const register = async (req, res, next) => {
 
         const password_hash = await bcrypt.hash(password, SALT_ROUNDS);
         const user = userModel.createUser({ name, email: email.toLowerCase(), password_hash, role });
+
+        if (role === 'owner') {
+            const db = require('../config/db');
+            db.prepare(`INSERT INTO shop_settings (owner_id, shop_name) VALUES (?, ?)`).run(user.id, `${name}'s Shop`);
+        }
+
         const token = signToken(user);
 
         return res.status(201).json({ success: true, message: 'Account created.', data: { user, token } });

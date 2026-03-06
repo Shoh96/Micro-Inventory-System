@@ -76,13 +76,70 @@
 
     /**
      * loadProducts — fetches product list and stores in allProducts.
+     * Admin can pass an owner_id query param to view another owner's inventory.
      * Re-applies the current filter/search after loading.
      */
+    const getAdminOwnerId = () => {
+        const sel = document.getElementById('admin-inventory-owner');
+        return sel?.value || null;
+    };
+
+    /** Render KPI summary strip for admin inventory analytics */
+    const renderInventoryAnalytics = () => {
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        const strip = document.getElementById('admin-inventory-analytics');
+        if (!strip || user.role !== 'admin') return;
+
+        const products = allProducts;
+        if (!products.length) { strip.style.display = 'none'; return; }
+
+        const totalValue = products.reduce((s, p) => s + (p.quantity * p.cost_price), 0);
+        const sellValue = products.reduce((s, p) => s + (p.quantity * p.selling_price), 0);
+        const lowStockCnt = products.filter(p => p.is_low_stock).length;
+        const categories = new Set(products.map(p => p.category_id).filter(Boolean)).size;
+        const currency = products[0]?.currency || 'XAF';
+        const fmt = n => Number(n).toLocaleString();
+
+        strip.style.display = 'grid';
+        strip.innerHTML = `
+          <div class="kpi-mini"><span class="kpi-mini-label">Cost Value</span><span class="kpi-mini-val">${fmt(totalValue)} <small>${currency}</small></span></div>
+          <div class="kpi-mini"><span class="kpi-mini-label">Sell Value</span><span class="kpi-mini-val">${fmt(sellValue)} <small>${currency}</small></span></div>
+          <div class="kpi-mini"><span class="kpi-mini-label">Total Products</span><span class="kpi-mini-val">${products.length}</span></div>
+          <div class="kpi-mini ${lowStockCnt ? 'kpi-mini--danger' : ''}"><span class="kpi-mini-label">Low Stock &#9888;</span><span class="kpi-mini-val">${lowStockCnt}</span></div>
+          <div class="kpi-mini"><span class="kpi-mini-label">Categories</span><span class="kpi-mini-val">${categories}</span></div>
+        `;
+    };
+
     const loadProducts = async () => {
-        const { ok, data } = await API.get('/products');
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        let url = '/products';
+        if (user.role === 'admin') {
+            const ownerId = getAdminOwnerId();
+            if (ownerId) url = `/products?owner_id=${ownerId}`;
+        }
+        const { ok, data } = await API.get(url);
         if (!ok) return;
-        allProducts = data.data;
+        allProducts = data.data || [];
         renderTable();
+        renderInventoryAnalytics();
+    };
+
+    /** Build admin inventory owner selector if admin */
+    const initAdminOwnerSelector = async () => {
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        if (user.role !== 'admin') return;
+        const container = document.getElementById('admin-inventory-filter');
+        if (!container) return;
+        container.style.display = 'flex';
+        const sel = document.getElementById('admin-inventory-owner');
+        if (!sel) return;
+        try {
+            const res = await API.get('/users');
+            const owners = (res.data?.data || []).filter(u => u.role === 'owner');
+            sel.innerHTML = '<option value="">— All Owners —</option>' +
+                owners.map(o => `<option value="${o.id}">${o.name}</option>`).join('');
+            sel.addEventListener('change', loadProducts);
+        } catch (_) { }
     };
 
     // ── Filtering / search ────────────────────────────────────────────────────
@@ -103,11 +160,6 @@
         });
     };
 
-    [filterCategory, filterLowStock, searchInput].forEach((el) => {
-        if (el) el.addEventListener('change', renderTable);
-    });
-    if (searchInput) searchInput.addEventListener('input', renderTable);
-
     // ── Render table ──────────────────────────────────────────────────────────
 
     const renderTable = () => {
@@ -116,6 +168,10 @@
             tableBody.innerHTML = '<tr><td colspan="9" class="empty-state">No products found.</td></tr>';
             return;
         }
+
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        const isClerk = user.role === 'clerk';
+
         tableBody.innerHTML = rows.map((p) => `
       <tr class="${p.is_low_stock ? 'row-low-stock' : ''}">
         <td>${escHtml(p.name)}${p.is_low_stock ? ' <span class="badge badge-danger">Low</span>' : ''}</td>
@@ -127,13 +183,18 @@
         <td>${p.expiry_date || '—'}</td>
         <td>${p.batch_number || '—'}</td>
         <td class="actions-cell">
-          <button class="btn btn-sm btn-secondary" onclick="Products.edit(${p.id})">Edit</button>
-          <button class="btn btn-sm btn-danger"    onclick="Products.del(${p.id})">Delete</button>
+          ${!isClerk ? `<button class="btn btn-sm btn-secondary" onclick="Products.edit(${p.id})">Edit</button>
+                        <button class="btn btn-sm btn-danger"    onclick="Products.del(${p.id})">Delete</button>` : ''}
           <button class="btn btn-sm btn-primary"   onclick="Sales.openQuick(${p.id},'${escHtml(p.name)}',${p.selling_price},${p.quantity})">Sell</button>
         </td>
       </tr>
     `).join('');
     };
+
+    [filterCategory, filterLowStock, searchInput].forEach((el) => {
+        if (el) el.addEventListener('change', renderTable);
+    });
+    if (searchInput) searchInput.addEventListener('input', renderTable);
 
     // ── Modal: add product ────────────────────────────────────────────────────
 
@@ -229,7 +290,12 @@
 
     const del = async (id) => {
         const product = allProducts.find(p => p.id === id);
-        if (!confirm(`Delete "${product?.name}"? This will also delete all its sales records.`)) return;
+        if (!product) return;
+
+        const check = prompt(`SECURITY WARNING: You are about to irrevocably delete the product "${product.name}" and all of its associated sales history.\n\nTo confirm, type the exact name:\n${product.name}`);
+        if (check !== product.name) {
+            return alert('Name did not match. Deletion cancelled.');
+        }
 
         const { ok, data } = await API.del(`/products/${id}`);
         if (!ok) return alert(data?.message || 'Delete failed.');
@@ -237,23 +303,47 @@
         if (window.Dashboard) window.Dashboard.loadMetrics();
     };
 
-    // ── Categories management ─────────────────────────────────────────────────
+    // ── Global event delegation for dynamically shown buttons ─────────────────
+    document.body.addEventListener('click', async (e) => {
+        // Add Product
+        if (e.target.closest('#btn-add-product')) {
+            openAddModal();
+        }
 
-    document.getElementById('btn-add-category')?.addEventListener('click', async () => {
-        const name = prompt('New category name:');
-        if (!name) return;
-        const { ok, data } = await API.post('/products/categories', { name });
+        // Add Category
+        if (e.target.closest('#btn-add-category')) {
+            const modal = document.getElementById('category-modal');
+            document.getElementById('category-form').reset();
+            modal.classList.remove('hidden');
+        }
+
+        // Add Supplier
+        if (e.target.closest('#btn-add-supplier')) {
+            const modal = document.getElementById('supplier-modal');
+            document.getElementById('supplier-form').reset();
+            modal.classList.remove('hidden');
+        }
+    });
+
+    // ── Categories & Suppliers Form Submissions ───────────────────────────────
+
+    document.getElementById('category-form')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const payload = Object.fromEntries(new FormData(e.target));
+        const { ok, data } = await API.post('/products/categories', payload);
         if (!ok) return alert(data?.message || 'Failed to create category.');
+
+        document.getElementById('category-modal').classList.add('hidden');
         await loadCategories();
     });
 
-    // ── Suppliers management ──────────────────────────────────────────────────
-
-    document.getElementById('btn-add-supplier')?.addEventListener('click', async () => {
-        const name = prompt('Supplier name:');
-        if (!name) return;
-        const { ok, data } = await API.post('/products/suppliers', { name });
+    document.getElementById('supplier-form')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const payload = Object.fromEntries(new FormData(e.target));
+        const { ok, data } = await API.post('/products/suppliers', payload);
         if (!ok) return alert(data?.message || 'Failed to create supplier.');
+
+        document.getElementById('supplier-modal').classList.add('hidden');
         await loadSuppliers();
     });
 
@@ -263,6 +353,7 @@
 
     // Initial load.
     (async () => {
+        await initAdminOwnerSelector();
         await Promise.all([loadCategories(), loadSuppliers()]);
         await loadProducts();
     })();

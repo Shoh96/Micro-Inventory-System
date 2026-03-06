@@ -21,14 +21,6 @@ const ctrl = require('../controllers/productController');
 const router = Router();
 router.use(authenticate);
 
-// ── Products ──────────────────────────────────────────────────────────────────
-router.get('/search', ctrl.searchProducts);
-router.get('/', ctrl.getProducts);
-router.post('/', requireRole('owner', 'admin'), ctrl.createProduct);
-router.get('/:id', ctrl.getProduct);
-router.put('/:id', requireRole('owner', 'admin'), ctrl.updateProduct);
-router.delete('/:id', requireRole('owner', 'admin'), ctrl.deleteProduct);
-
 // ── Categories ────────────────────────────────────────────────────────────────
 router.get('/categories', ctrl.getCategories);
 router.post('/categories', requireRole('owner', 'admin'), ctrl.createCategory);
@@ -39,5 +31,13 @@ router.get('/suppliers', ctrl.getSuppliers);
 router.post('/suppliers', requireRole('owner', 'admin'), ctrl.createSupplier);
 router.put('/suppliers/:id', requireRole('owner', 'admin'), ctrl.updateSupplier);
 router.delete('/suppliers/:id', requireRole('owner', 'admin'), ctrl.deleteSupplier);
+
+// ── Products ──────────────────────────────────────────────────────────────────
+router.get('/search', ctrl.searchProducts);
+router.get('/', ctrl.getProducts);
+router.post('/', requireRole('owner', 'admin'), ctrl.createProduct);
+router.get('/:id', ctrl.getProduct);
+router.put('/:id', requireRole('owner', 'admin'), ctrl.updateProduct);
+router.delete('/:id', requireRole('owner', 'admin'), ctrl.deleteProduct);
 
 module.exports = router;

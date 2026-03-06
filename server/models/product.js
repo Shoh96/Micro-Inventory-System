@@ -16,8 +16,7 @@
 'use strict';
 
 const db = require('../config/db');
-
-const LOW_STOCK_THRESHOLD = parseInt(process.env.LOW_STOCK_THRESHOLD || '5', 10);
+const shopSettings = require('./shopSettings');
 
 // Shared SELECT with JOINs — used by most read functions to avoid repetition.
 // LEFT JOIN means products without a category or supplier still appear.
@@ -41,8 +40,9 @@ const BASE_SELECT = `
  * @param {{categoryId?, lowStockOnly?}} filters
  */
 const getAllProducts = (ownerId, filters = {}) => {
+    const threshold = shopSettings.getSettings(ownerId).low_stock_threshold;
     let sql = `${BASE_SELECT} WHERE p.owner_id = ?`;
-    const args = [LOW_STOCK_THRESHOLD, ownerId];
+    const args = [threshold, ownerId];
 
     if (filters.categoryId) {
         sql += ' AND p.category_id = ?';
@@ -50,7 +50,7 @@ const getAllProducts = (ownerId, filters = {}) => {
     }
     if (filters.lowStockOnly) {
         sql += ' AND p.quantity <= ?';
-        args.push(LOW_STOCK_THRESHOLD);
+        args.push(threshold);
     }
 
     sql += ' ORDER BY p.created_at DESC';
@@ -61,18 +61,22 @@ const getAllProducts = (ownerId, filters = {}) => {
  * getLowStockProducts — products at or below the threshold.
  * @param {number} ownerId
  */
-const getLowStockProducts = (ownerId) =>
-    db.prepare(`${BASE_SELECT} WHERE p.owner_id = ? AND p.quantity <= ? ORDER BY p.quantity ASC`)
-        .all(LOW_STOCK_THRESHOLD, ownerId, LOW_STOCK_THRESHOLD);
+const getLowStockProducts = (ownerId) => {
+    const threshold = shopSettings.getSettings(ownerId).low_stock_threshold;
+    return db.prepare(`${BASE_SELECT} WHERE p.owner_id = ? AND p.quantity <= ? ORDER BY p.quantity ASC`)
+        .all(threshold, ownerId, threshold);
+};
 
 /**
  * getProductById — single product, owner-scoped.
  * @param {number} productId
  * @param {number} ownerId
  */
-const getProductById = (productId, ownerId) =>
-    db.prepare(`${BASE_SELECT} WHERE p.id = ? AND p.owner_id = ?`)
-        .get(LOW_STOCK_THRESHOLD, productId, ownerId);
+const getProductById = (productId, ownerId) => {
+    const threshold = shopSettings.getSettings(ownerId).low_stock_threshold;
+    return db.prepare(`${BASE_SELECT} WHERE p.id = ? AND p.owner_id = ?`)
+        .get(threshold, productId, ownerId);
+};
 
 /**
  * searchProducts — full-text search across name, description, batch, serial.
@@ -82,13 +86,14 @@ const getProductById = (productId, ownerId) =>
  * @param {string} query
  */
 const searchProducts = (ownerId, query) => {
+    const threshold = shopSettings.getSettings(ownerId).low_stock_threshold;
     const q = `%${query}%`;
     return db.prepare(`
     ${BASE_SELECT}
     WHERE p.owner_id = ?
       AND (p.name LIKE ? OR p.description LIKE ? OR p.batch_number LIKE ? OR p.serial_number LIKE ?)
     ORDER BY p.name ASC
-  `).all(LOW_STOCK_THRESHOLD, ownerId, q, q, q, q);
+  `).all(threshold, ownerId, q, q, q, q);
 };
 
 /**
@@ -165,6 +170,7 @@ const deductStock = (productId, qty, ownerId) => {
 };
 
 module.exports = {
-    getAllProducts, getLowStockProducts, getProductById, searchProducts,
-    createProduct, updateProduct, deleteProduct, deductStock, LOW_STOCK_THRESHOLD,
+    getAllProducts, getLowStockProducts, getProductById,
+    createProduct, updateProduct, deleteProduct, deductStock,
+    searchProducts,
 };

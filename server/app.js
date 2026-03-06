@@ -34,6 +34,9 @@ const userRoutes = require('./routes/users');
 const productRoutes = require('./routes/products');
 const salesRoutes = require('./routes/sales');
 const analyticsRoutes = require('./routes/analytics');
+const settingsRoutes = require('./routes/settings');
+const branchRoutes = require('./routes/branches');
+const shopRoutes = require('./routes/shops');
 
 const { errorHandler } = require('./middleware/errorHandler');
 
@@ -57,9 +60,12 @@ app.use(express.static(clientDir));
 // ── API routes ────────────────────────────────────────────────────────────────
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/shops', shopRoutes);
+app.use('/api/branches', branchRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/sales', salesRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/settings', settingsRoutes);
 
 // ── Health check ──────────────────────────────────────────────────────────────
 app.get('/health', (_req, res) =>

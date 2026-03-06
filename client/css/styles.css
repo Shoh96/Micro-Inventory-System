@@ -788,7 +788,7 @@ a {
 .header-actions {
     display: flex;
     gap: 0.75rem;
-    flexwrap: wrap;
+    flex-wrap: wrap;
 }
 
 .content-section {
@@ -843,4 +843,37 @@ a {
     .modal-box {
         padding: 1.25rem;
     }
+}
+/* ─── Admin Analytics KPI Mini Strip ───────────────────────────────────────── */
+.kpi-mini {
+  background: var(--card-bg, #1e2535);
+  border: 1px solid var(--border-color, rgba(255,255,255,0.08));
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.kpi-mini--danger {
+  border-color: var(--danger, #e53e3e);
+  background: rgba(229,62,62,0.1);
+}
+.kpi-mini-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted, #8892a4);
+}
+.kpi-mini-val {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary, #e2e8f0);
+  line-height: 1.2;
+}
+.kpi-mini-val small {
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--text-muted, #8892a4);
+  margin-left: 0.2rem;
 }

@@ -1,9 +1,10 @@
-# Community Micro-Inventory System — V2
+# Community Micro-Inventory System — V3
 
-A production-structured, full-stack inventory management platform for small shop owners in emerging markets. V2 extends the foundation with role-based access, analytics dashboards, Chart.js visualisations, smart stock predictions, and an Electron desktop installer.
+A production-structured, full-stack inventory management platform for small shop owners in emerging markets. V3 extends V2 with a full multi-owner, multi-shop, multi-branch architecture, complete admin CRUD over owner accounts, and a shops/branches management layer.
 
-> **V1** (simple single-owner CRUD) is preserved as git tag `v1.0.0` on the `main` branch.  
-> **V2** (this) lives on the `v2` branch.
+> **V1** (simple single-owner CRUD) is preserved as git tag `v1.0.0`.  
+> **V2** (role-based access, analytics, Electron) lives on the `v2` branch.  
+> **V3** (this) — multi-shop/branch architecture + full admin owner management.
 
 ---
 
@@ -13,10 +14,25 @@ Small retail businesses in sub-Saharan Africa and similar markets manage stock m
 
 ---
 
-## What's New in V2
+## What's New in V3
+
+| Feature | V2 | V3 |
+|---------|----|----|
+| Multi-shop per owner | ❌ | ✅ owners can have multiple shops |
+| Multi-branch per shop | ❌ | ✅ branches linked to shops |
+| Admin creates owners inline | ❌ | ✅ shops + branches in one form |
+| Admin edits/deletes owners | ❌ | ✅ full owner CRUD |
+| Clerk → branch assignment | optional | ✅ required + validated |
+| Admin filter inventory/sales by owner | ❌ | ✅ |
+| Shops manager (UI) | ❌ | ✅ |
+| Branches manager (UI) | ❌ | ✅ |
+| Danger Zone: clear all data | ❌ | ✅ admin-only |
+| Seed data | basic | ✅ 4 owners, 5 shops, 10 branches, 9 clerks |
+
+## What's in V2 (still present)
 
 | Feature | V1 | V2 |
-|---------|----|----|
+|---------|----|-----|
 | User roles | ❌ single owner | ✅ Admin / Owner / Clerk |
 | Activity audit log | ❌ | ✅ all create/update/delete events |
 | Product categories | ❌ | ✅ owner-scoped |
@@ -55,13 +71,15 @@ micro-inventory/
 │
 ├── server/                     # Express REST API
 │   ├── app.js                  # Entry point
-│   ├── config/db.js            # SQLite + self-bootstrapping schema
+│   ├── config/db.js            # SQLite + self-bootstrapping schema (incl. shops, branches)
 │   ├── middleware/
 │   │   ├── auth.js             # JWT verification
 │   │   ├── role.js             # RBAC factory (requireRole)
 │   │   └── errorHandler.js     # Centralised JSON error envelope
 │   ├── models/                 # SQL-only, no logic
-│   │   ├── user.js             # Users with role + owner_id
+│   │   ├── user.js             # Users with role + owner_id + branch_id
+│   │   ├── shop.js             # NEW: Shops with currency, tax %, admin visibility
+│   │   ├── branch.js           # Updated: branches reference shop_id
 │   │   ├── product.js          # Products with LEFT JOINs
 │   │   ├── sale.js             # Sales with discount/tax/clerk
 │   │   ├── category.js
@@ -69,12 +87,16 @@ micro-inventory/
 │   │   └── activityLog.js      # Append-only audit trail
 │   ├── controllers/            # Business logic + validation
 │   │   ├── authController.js
-│   │   ├── userController.js
-│   │   ├── productController.js # Incl. duplicate detection
-│   │   ├── salesController.js   # Atomic transaction + activity log
+│   │   ├── userController.js   # V3: createOwner (shops+branches), createClerk (branch required),
+│   │   │                       #     updateUser, resetPassword, deactivate, reactivate,
+│   │   │                       #     deleteOwner, clearAllData
+│   │   ├── shopController.js   # NEW: CRUD for shops + branch listing per shop
+│   │   ├── productController.js # Admin ?owner_id filter
+│   │   ├── salesController.js   # Admin ?owner_id filter; atomic transaction + activity log
 │   │   └── analyticsController.js # KPIs, charts, CSV export
 │   ├── routes/
-│   │   └── auth/users/products/sales/analytics.js
+│   │   └── auth/users/shops/products/sales/analytics/branches.js
+│   ├── seed.js                 # V3 seed: 4 owners, 5 shops, 10 branches, 9 clerks
 │   └── utils/
 │       ├── calculations.js     # discount + tax profit formula
 │       ├── duplicateChecker.js # 3-tier LIKE similarity search
@@ -83,13 +105,15 @@ micro-inventory/
 │
 ├── client/                     # Vanilla JS SPA (no build step)
 │   ├── index.html              # Login / Register
-│   ├── dashboard.html          # Full app shell
+│   ├── dashboard.html          # Full app shell (incl. shops/branches modals)
 │   ├── js/
 │   │   ├── api.js             # Fetch wrapper (JWT, 401 redirect, blob download)
 │   │   ├── auth.js            # Auth page logic
-│   │   ├── products.js        # CRUD + filters + duplicate warning
-│   │   ├── sales.js           # Record + history + live revenue preview
-│   │   └── analytics.js       # 3 Chart.js charts + predictions + activity
+│   │   ├── users.js           # V3: full owner CRUD, cascading clerk form, shops/branches manager
+│   │   ├── products.js        # Admin owner-filter dropdown
+│   │   ├── sales.js           # Admin owner-filter dropdown
+│   │   ├── analytics.js       # 3 Chart.js charts + predictions + activity
+│   │   └── settings.js        # Hides Shop Config for admin (managed via owner creation)
 │   └── css/styles.css         # Complete dark design system
 │
 ├── electron/
@@ -98,7 +122,7 @@ micro-inventory/
 │
 ├── Dockerfile                 # Multi-stage, non-root production image
 ├── docker-compose.yml         # Volume-mounted SQLite + env forwarding
-└── package.json               # electron-builder NSIS configuration
+└── package.json               # electron-builder NSIS configuration (v3.0.0)
 ```
 
 ### Separation of Concerns
@@ -114,7 +138,10 @@ micro-inventory/
 ## Database Schema
 
 ```sql
-users         (id, name, email, password_hash, role, owner_id, is_active, created_at)
+users         (id, name, email, password_hash, role, owner_id, branch_id, is_active, created_at)
+shops         (id, owner_id, name, address, currency, low_stock_threshold, tax_percentage,
+               allow_admin_visibility, created_at)                        -- NEW in V3
+branches      (id, shop_id, owner_id, name, address, phone, created_at)  -- shop_id added in V3
 categories    (id, owner_id, name, created_at)
 suppliers     (id, owner_id, name, contact_info, email, created_at)
 products      (id, owner_id, category_id, supplier_id, name, description,
@@ -124,6 +151,7 @@ sales         (id, owner_id, product_id, clerk_id,
                quantity_sold, selling_price_at_sale, cost_price_at_sale,
                discount, tax_rate, total_revenue, total_profit, sale_date)
 activity_log  (id, user_id, user_name, action, entity_type, entity_id, detail, created_at)
+shop_settings (id, owner_id, shop_name, currency, low_stock_threshold)   -- legacy compat
 ```
 
 **Key design decisions:**
@@ -131,6 +159,8 @@ activity_log  (id, user_id, user_name, action, entity_type, entity_id, detail, c
 - `total_profit` and `total_revenue` are persisted to keep dashboard aggregations fast.
 - `is_active` on users enables soft-deactivation without data loss.
 - WAL mode + `PRAGMA foreign_keys = ON` enabled at every connection.
+- `shops.allow_admin_visibility` lets owners control whether the admin can see their data.
+- Existing V2 databases auto-migrate on first boot (safe ALTER TABLE guards).
 
 ---
 
@@ -159,15 +189,38 @@ All responses use `{ "success": true/false, "data": ..., "message": "..." }`.
 ### Users (admin/owner)
 | Method | Path | Role | Description |
 |--------|------|------|-------------|
-| GET | /api/users | owner+ | List users |
-| POST | /api/users/clerk | owner+ | Create clerk |
-| PUT | /api/users/:id/role | admin | Change role |
-| DELETE | /api/users/:id | admin | Deactivate |
+| GET | /api/users | owner+ | List users (admin sees all; owner sees own clerks) |
+| POST | /api/users/owner | **admin** | Create owner (with inline shops + branches) |
+| PUT | /api/users/:id | admin/owner | Update name, email, branch_id |
+| PUT | /api/users/:id/role | **admin** | Change role |
+| POST | /api/users/:id/reset-password | admin/owner | Reset password → returns new credentials |
+| PUT | /api/users/:id/reactivate | admin/owner | Reactivate a deactivated user |
+| DELETE | /api/users/:id | admin/owner | Deactivate user (soft delete) |
+| DELETE | /api/users/owner/:id | **admin** | Permanently delete owner + all their data |
+| POST | /api/users/clerk | owner+ | Create clerk (branch_id required) |
+| DELETE | /api/users/clear-data | **admin** | Wipe all business data (confirm required) |
+
+### Shops (NEW in V3)
+| Method | Path | Role | Description |
+|--------|------|------|-------------|
+| GET | /api/shops | owner+ | List shops (admin sees all) |
+| POST | /api/shops | owner+ | Create shop |
+| PUT | /api/shops/:id | owner+ | Update shop |
+| DELETE | /api/shops/:id | owner+ | Delete shop |
+| GET | /api/shops/:id/branches | owner+ | List branches for a shop |
+
+### Branches
+| Method | Path | Role | Description |
+|--------|------|------|-------------|
+| GET | /api/branches | owner+ | List branches |
+| POST | /api/branches | owner+ | Create branch (shop_id required) |
+| PUT | /api/branches/:id | owner+ | Update branch |
+| DELETE | /api/branches/:id | owner+ | Delete branch |
 
 ### Products
 | Method | Path | Role | Description |
 |--------|------|------|-------------|
-| GET | /api/products | all | List with filters |
+| GET | /api/products | all | List with filters; admin supports `?owner_id=` |
 | GET | /api/products/search?q= | all | Keyword search |
 | POST | /api/products | owner+ | Create (409 on duplicate) |
 | PUT | /api/products/:id | owner+ | Update |
@@ -178,7 +231,7 @@ All responses use `{ "success": true/false, "data": ..., "message": "..." }`.
 ### Sales
 | Method | Path | Role | Description |
 |--------|------|------|-------------|
-| GET | /api/sales | all | History w/ product + clerk names |
+| GET | /api/sales | all | History; admin supports `?owner_id=` |
 | POST | /api/sales | all | Record (atomic stock deduction) |
 
 ### Analytics (owner/admin only)
@@ -203,9 +256,8 @@ All responses use `{ "success": true/false, "data": ..., "message": "..." }`.
 
 ### Local setup
 ```bash
-git clone https://github.com/your-username/micro-inventory-system.git
-cd micro-inventory-system
-git checkout v2
+git clone https://github.com/Shoh96/Micro-Inventory-System.git
+cd Micro-Inventory-System
 
 cd server
 npm install
@@ -215,6 +267,9 @@ cp .env.example .env
 
 node app.js
 # API + frontend at http://localhost:3000
+
+# Optional: seed demo data (4 owners, 5 shops, 10 branches, 9 clerks)
+node seed.js
 ```
 
 ### Environment Variables
@@ -254,7 +309,7 @@ npm install          # installs electron + electron-builder
 # First: add an icon at electron/assets/icon.ico (256×256 ICO)
 
 npm run electron:build
-# Produces dist/Micro-Inventory-System Setup 2.0.0.exe
+# Produces dist/Micro-Inventory-System Setup 3.0.0.exe
 ```
 The NSIS installer bundles the Electron runtime, the Express server, and the client. Users install it like any Windows application. The SQLite database is stored in `%APPDATA%\Micro-Inventory System\`.
 
@@ -264,14 +319,21 @@ The NSIS installer bundles the Electron runtime, the Express server, and the cli
 
 | Action | Admin | Owner | Clerk |
 |--------|-------|-------|-------|
+| Create owner accounts | ✅ | ❌ | ❌ |
+| Edit / delete owner accounts | ✅ | ❌ | ❌ |
 | Register (self) | ✅ | ✅ | ❌ |
 | Create clerks | ✅ | ✅ | ❌ |
 | Change roles | ✅ | ❌ | ❌ |
+| Reset passwords | ✅ | ✅ (own clerks) | ❌ |
+| Manage shops | ✅ | ✅ (own) | ❌ |
+| Manage branches | ✅ | ✅ (own) | ❌ |
 | View products | ✅ | ✅ | ✅ |
 | Create/edit/delete products | ✅ | ✅ | ❌ |
 | Record sales | ✅ | ✅ | ✅ |
 | View analytics | ✅ | ✅ | ❌ |
 | Export CSV | ✅ | ✅ | ❌ |
+| View any owner's data | ✅ | ❌ | ❌ |
+| Clear all system data | ✅ | ❌ | ❌ |
 
 ---
 
@@ -290,6 +352,22 @@ Uses a SQL CTE to calculate average daily sales velocity over the last 30 days, 
 
 ---
 
+## Seed Data (V3)
+
+Run `node seed.js` from the `server/` directory to populate demo data:
+
+| Owner | Email | Shops | Branches | Clerks |
+|-------|-------|-------|----------|--------|
+| Mama Ndu | owner@boutique.cm | 1 | 2 | 2 |
+| Emmanuel Tchinda | emmanuel@matbatiment.cm | 2 | 3 | 2 |
+| Fatima Aboubakar | fatima@fashion.cm | 1 | 2 | 2 |
+| Sylvie Pharmacie | sylvie@pharmacie.cm | 1 | 3 | 3 |
+
+Default password for all seed accounts: `secureP@ssw0rd!`  
+Admin: `admin@system.local` / `secureP@ssw0rd!`
+
+---
+
 ## Future Improvements
 
 - PostgreSQL support for high-concurrency deployments
@@ -304,7 +382,7 @@ Uses a SQL CTE to calculate average daily sales velocity over the last 30 days, 
 
 ## Resume Summary
 
-Community Micro-Inventory System V2 is a full-stack web + desktop application built with Node.js, Express, SQLite, Vanilla JavaScript, and Electron. It demonstrates role-based access control with JWT, a six-table relational schema with full foreign key integrity, atomic database transactions for sale recording, SQL CTEs for stock velocity prediction, Chart.js analytics visualisations, RFC 4180 CSV export, and an Electron NSIS desktop installer. The codebase follows a strict separation of concerns: routes, controllers, models, middleware, and pure utility functions.
+Community Micro-Inventory System V3 is a full-stack web + desktop application built with Node.js, Express, SQLite, Vanilla JavaScript, and Electron. It demonstrates role-based access control with JWT, a multi-owner / multi-shop / multi-branch relational schema with full foreign key integrity, atomic database transactions for sale recording, SQL CTEs for stock velocity prediction, Chart.js analytics visualisations, RFC 4180 CSV export, and an Electron NSIS desktop installer. The admin role has full CRUD over owner accounts including cascading deletion of all associated data. The codebase follows a strict separation of concerns: routes, controllers, models, middleware, and pure utility functions.
 
 ---
 

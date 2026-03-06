@@ -28,15 +28,22 @@ const resolveOwnerId = (user) => (user.role === 'clerk' ? user.owner_id : user.i
 
 const getProducts = (req, res, next) => {
     try {
-        const ownerId = resolveOwnerId(req.user);
+        // Admin can pass ?owner_id=X to see a specific owner's inventory
+        let ownerId;
+        if (req.user.role === 'admin' && req.query.owner_id) {
+            ownerId = parseInt(req.query.owner_id, 10);
+        } else {
+            ownerId = resolveOwnerId(req.user);
+        }
         const filters = {
             categoryId: req.query.category_id ? parseInt(req.query.category_id, 10) : null,
             lowStockOnly: req.query.low_stock === 'true',
         };
         const products = productModel.getAllProducts(ownerId, filters);
-        return res.status(200).json({ success: true, data: products });
+        return res.status(200).json({ success: true, data: products, owner_id: ownerId });
     } catch (err) { next(err); }
 };
+
 
 const searchProducts = (req, res, next) => {
     try {
