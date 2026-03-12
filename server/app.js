@@ -87,6 +87,9 @@ app.listen(PORT, () => {
     process.stdout.write(
         `[server v2] Community Micro-Inventory API running on port ${PORT}\n`,
     );
+    console.log(
+        `Server running on port ${PORT}`
+    );
 });
 
 module.exports = app;
